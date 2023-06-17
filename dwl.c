@@ -331,6 +331,7 @@ static void urgent(struct wl_listener *listener, void *data);
 static void view(const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
+static void warpcursor(void);
 static Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
 		Client **pc, LayerSurface **pl, double *nx, double *ny);
@@ -481,6 +482,8 @@ arrange(Monitor *m)
 		m->lt[m->sellt]->arrange(m);
 	motionnotify(0);
 	checkidleinhibitor(NULL);
+
+	warpcursor();
 }
 
 void
@@ -1198,6 +1201,9 @@ focusclient(Client *c, int lift)
 		 * handling a drag operation */
 		if (!exclusive_focus && !seat->drag)
 			client_set_border_color(c, focuscolor);
+
+		/* Warp cursor to center of client if it is outside */
+		warpcursor();
 	}
 
 	/* Deactivate old client if focus is changing */
@@ -2778,6 +2784,15 @@ virtualpointer(struct wl_listener *listener, void *data)
 	wlr_cursor_attach_input_device(cursor, &pointer.base);
 	if (event->suggested_output)
 		wlr_cursor_map_input_to_output(cursor, &pointer.base, event->suggested_output);
+}
+
+void
+warpcursor(void) {
+	Client *c = focustop(selmon);
+	if (cursor_warp && c && !wlr_box_contains_point(&c->geom, cursor->x, cursor->y))
+		wlr_cursor_warp_closest(cursor, NULL,
+				c->geom.x + c->geom.width / 2.0,
+				c->geom.y + c->geom.height / 2.0);
 }
 
 Monitor *
