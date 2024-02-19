@@ -143,6 +143,7 @@ typedef struct {
 	xkb_keysym_t keysym;
 	void (*func)(const Arg *);
 	const Arg arg;
+	int override_lock;
 } Key;
 
 typedef struct {
@@ -1372,7 +1373,7 @@ keybinding(uint32_t mods, xkb_keysym_t sym)
 	 */
 	const Key *k;
 	for (k = keys; k < END(keys); k++) {
-		if (CLEANMASK(mods) == CLEANMASK(k->mod)
+		if ((!locked || k->override_lock) && CLEANMASK(mods) == CLEANMASK(k->mod)
 				&& sym == k->keysym && k->func) {
 			k->func(&k->arg);
 			return 1;
@@ -1401,12 +1402,10 @@ keypress(struct wl_listener *listener, void *data)
 
 	wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
 
-	/* On _press_ if there is no active screen locker,
-	 * attempt to process a compositor keybinding. */
-	if (!locked && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+	/* On _press_, attempt to process compositor keybindings. */
+	if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED)
 		for (i = 0; i < nsyms; i++)
 			handled = keybinding(mods, syms[i]) || handled;
-	}
 
 	if (handled && group->wlr_group->keyboard.repeat_info.delay > 0) {
 		group->mods = mods;
