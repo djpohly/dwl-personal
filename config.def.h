@@ -57,6 +57,7 @@ static const MonitorRule monrules[] = {
 	/* { NULL,       0.5f,  1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,   -1,  -1 }, */
 
 	/* defaults */
+	{ "DP-11",    0.5,  1,      1,    &layouts[3], WL_OUTPUT_TRANSFORM_NORMAL,   0,  0 },
 	{ NULL,       0.5,  1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,   0,  0 },
 };
 
