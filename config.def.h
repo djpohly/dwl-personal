@@ -133,7 +133,7 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 /* commands */
 static const char *termcmd[] = { "foot", NULL };
 static const char *menucmd[] = { "wmenu-run", NULL };
-static const char *lockcmd[]  = { "swaylock", NULL };
+static const char *lockcmd[]  = { "wllock", NULL };
 static const char *wificmd[]  = { "wpass", NULL };
 static const char *lowervolcmd[]  = { "amixer", "-q", "sset", "Master", "3%-", NULL };
 static const char *raisevolcmd[]  = { "amixer", "-q", "sset", "Master", "3%+", NULL };
