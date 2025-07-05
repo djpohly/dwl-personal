@@ -39,14 +39,6 @@ pub fn main() !void {
     cleanup();
 }
 
-fn exit_child(child: *std.process.Child) void {
-    _ = child.kill() catch |err| switch (err) {
-        // We can get this if the child was already waited on by waitpid()
-        error.AlreadyTerminated => {},
-        else => std.log.err("failed to shut down child (pid {})", .{ child.id }),
-    };
-}
-
 fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     // Add a Unix socket to the Wayland display.
     var sockname_buf: [11]u8 = undefined;
@@ -98,6 +90,18 @@ fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     dpy.run();
 }
 
+export fn xytomon(x: f64, y: f64) ?*C.Monitor {
+    return if (output_layout.outputAt(x, y)) |o| @alignCast(@ptrCast(o.data)) else null;
+}
+
+fn exit_child(child: *std.process.Child) void {
+    _ = child.kill() catch |err| switch (err) {
+        // We can get this if the child was already waited on by waitpid()
+        error.AlreadyTerminated => {},
+        else => std.log.err("failed to shut down child (pid {})", .{ child.id }),
+    };
+}
+
 fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
 }
@@ -106,10 +110,10 @@ extern var backend: *wlroots.Backend;
 extern var cursor: *wlroots.Cursor;
 extern var cursor_mgr: *wlroots.XcursorManager;
 extern var dpy: *wl.Server;
-extern var selmon: *C.Monitor;
+extern var output_layout: *wlroots.OutputLayout;
+extern var selmon: ?*C.Monitor;
 
 extern fn setup() void;
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn printstatus() void;
-extern fn xytomon(x: f64, y: f64) *C.Monitor;

@@ -230,7 +230,7 @@ static void view(const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
 static void warpcursor(void);
-Monitor *xytomon(double x, double y);
+extern Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
 		Client **pc, LayerSurface **pl, double *nx, double *ny);
 static void zoom(const Arg *arg);
@@ -286,7 +286,7 @@ static unsigned int cursor_mode;
 static Client *grabc;
 static int grabcx, grabcy; /* client-relative */
 
-static struct wlr_output_layout *output_layout;
+struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
 static struct wl_list mons;
 Monitor *selmon;
@@ -2870,13 +2870,6 @@ warpcursor(void) {
 		wlr_cursor_warp_closest(cursor, NULL,
 				c->geom.x + c->geom.width / 2.0,
 				c->geom.y + c->geom.height / 2.0);
-}
-
-Monitor *
-xytomon(double x, double y)
-{
-	struct wlr_output *o = wlr_output_layout_output_at(output_layout, x, y);
-	return o ? o->data : NULL;
 }
 
 void
