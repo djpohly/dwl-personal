@@ -87,127 +87,7 @@ enum { CurNormal, CurPressed, CurMove, CurResize }; /* cursor */
 enum { XDGShell, LayerShell, X11 }; /* client types */
 enum { LyrBg, LyrBottom, LyrTile, LyrFloat, LyrTop, LyrFS, LyrOverlay, LyrBlock, NUM_LAYERS }; /* scene layers */
 
-typedef union {
-	int i;
-	uint32_t ui;
-	float f;
-	const void *v;
-} Arg;
-
-typedef struct {
-	unsigned int mod;
-	unsigned int button;
-	void (*func)(const Arg *);
-	const Arg arg;
-} Button;
-
-typedef struct Monitor Monitor;
-typedef struct {
-	/* Must keep this field first */
-	unsigned int type; /* XDGShell or X11* */
-
-	Monitor *mon;
-	struct wlr_scene_tree *scene;
-	struct wlr_scene_rect *border[4]; /* top, bottom, left, right */
-	struct wlr_scene_tree *scene_surface;
-	struct wl_list link;
-	struct wl_list flink;
-	struct wlr_box geom; /* layout-relative, includes border */
-	struct wlr_box prev; /* layout-relative, includes border */
-	struct wlr_box bounds; /* only width and height are used */
-	union {
-		struct wlr_xdg_surface *xdg;
-		struct wlr_xwayland_surface *xwayland;
-	} surface;
-	struct wlr_xdg_toplevel_decoration_v1 *decoration;
-	struct wl_listener commit;
-	struct wl_listener map;
-	struct wl_listener maximize;
-	struct wl_listener unmap;
-	struct wl_listener destroy;
-	struct wl_listener set_title;
-	struct wl_listener fullscreen;
-	struct wl_listener set_decoration_mode;
-	struct wl_listener destroy_decoration;
-#ifdef XWAYLAND
-	struct wl_listener activate;
-	struct wl_listener associate;
-	struct wl_listener dissociate;
-	struct wl_listener configure;
-	struct wl_listener set_hints;
-#endif
-	unsigned int bw;
-	uint32_t tags;
-	int isfloating, isurgent, isfullscreen;
-	uint32_t resize; /* configure serial of a pending resize */
-} Client;
-
-typedef struct {
-	uint32_t mod;
-	xkb_keysym_t keysym;
-	void (*func)(const Arg *);
-	const Arg arg;
-	int override_lock;
-} Key;
-
-typedef struct {
-	struct wlr_keyboard_group *wlr_group;
-
-	int nsyms;
-	const xkb_keysym_t *keysyms; /* invalid if nsyms == 0 */
-	uint32_t mods; /* invalid if nsyms == 0 */
-	struct wl_event_source *key_repeat_source;
-
-	struct wl_listener modifiers;
-	struct wl_listener key;
-	struct wl_listener destroy;
-} KeyboardGroup;
-
-typedef struct {
-	/* Must keep this field first */
-	unsigned int type; /* LayerShell */
-
-	Monitor *mon;
-	struct wlr_scene_tree *scene;
-	struct wlr_scene_tree *popups;
-	struct wlr_scene_layer_surface_v1 *scene_layer;
-	struct wl_list link;
-	int mapped;
-	struct wlr_layer_surface_v1 *layer_surface;
-
-	struct wl_listener destroy;
-	struct wl_listener unmap;
-	struct wl_listener surface_commit;
-} LayerSurface;
-
-typedef struct {
-	const char *symbol;
-	void (*arrange)(Monitor *);
-} Layout;
-
-struct Monitor {
-	struct wl_list link;
-	struct wlr_output *wlr_output;
-	struct wlr_scene_output *scene_output;
-	struct wlr_scene_rect *fullscreen_bg; /* See createmon() for info */
-	struct wl_listener frame;
-	struct wl_listener destroy;
-	struct wl_listener request_state;
-	struct wl_listener destroy_lock_surface;
-	struct wlr_session_lock_surface_v1 *lock_surface;
-	struct wlr_box m; /* monitor area, layout-relative */
-	struct wlr_box w; /* window area, layout-relative */
-	struct wl_list layers[4]; /* LayerSurface.link */
-	const Layout *lt[2];
-	unsigned int seltags;
-	unsigned int sellt;
-	uint32_t tagset[2];
-	float mfact;
-	int gamma_lut_changed;
-	int nmaster;
-	char ltsymbol[16];
-	int asleep;
-};
+#include "internal.h"
 
 typedef struct {
 	const char *name;
@@ -313,7 +193,7 @@ static void outputmgrapplyortest(struct wlr_output_configuration_v1 *config, int
 static void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface,
 		double sx, double sy, uint32_t time);
-static void printstatus(void);
+void printstatus(void);
 static void powermgrsetmode(struct wl_listener *listener, void *data);
 static void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
@@ -321,7 +201,6 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
-void run(char *startup_cmd);
 static void setcursor(struct wl_listener *listener, void *data);
 static void setcursorshape(struct wl_listener *listener, void *data);
 static void setfloating(Client *c, int floating);
@@ -351,7 +230,7 @@ static void view(const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
 static void warpcursor(void);
-static Monitor *xytomon(double x, double y);
+Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
 		Client **pc, LayerSurface **pl, double *nx, double *ny);
 static void zoom(const Arg *arg);
@@ -362,9 +241,9 @@ static void bstackhoriz(Monitor *m);
 static pid_t child_pid = -1;
 static int locked;
 static void *exclusive_focus;
-static struct wl_display *dpy;
+struct wl_display *dpy;
 static struct wl_event_loop *event_loop;
-static struct wlr_backend *backend;
+struct wlr_backend *backend;
 static struct wlr_scene *scene;
 static struct wlr_scene_tree *layers[NUM_LAYERS];
 static struct wlr_scene_tree *drag_icon;
@@ -393,8 +272,8 @@ static struct wlr_pointer_constraints_v1 *pointer_constraints;
 static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
 static struct wlr_pointer_constraint_v1 *active_constraint;
 
-static struct wlr_cursor *cursor;
-static struct wlr_xcursor_manager *cursor_mgr;
+struct wlr_cursor *cursor;
+struct wlr_xcursor_manager *cursor_mgr;
 
 static struct wlr_scene_rect *root_bg;
 static struct wlr_session_lock_manager_v1 *session_lock_mgr;
@@ -410,7 +289,7 @@ static int grabcx, grabcy; /* client-relative */
 static struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
 static struct wl_list mons;
-static Monitor *selmon;
+Monitor *selmon;
 
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};
@@ -2274,67 +2153,6 @@ resize(Client *c, struct wlr_box geo, int interact)
 			c->geom.height - 2 * c->bw);
 	client_get_clip(c, &clip);
 	wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
-}
-
-void
-run(char *startup_cmd)
-{
-	/* Add a Unix socket to the Wayland display. */
-	const char *socket = wl_display_add_socket_auto(dpy);
-	if (!socket)
-		die("startup: display_add_socket_auto");
-	setenv("WAYLAND_DISPLAY", socket, 1);
-
-	/* Start the backend. This will enumerate outputs and inputs, become the DRM
-	 * master, etc */
-	if (!wlr_backend_start(backend))
-		die("startup: backend_start");
-
-	/* Now that the socket exists and the backend is started, run the startup command */
-	if (startup_cmd) {
-		int piperw[2];
-		if (pipe(piperw) < 0)
-			die("startup: pipe:");
-		if ((child_pid = fork()) < 0)
-			die("startup: fork:");
-		if (child_pid == 0) {
-			setsid();
-			dup2(piperw[0], STDIN_FILENO);
-			close(piperw[0]);
-			close(piperw[1]);
-			execl("/bin/sh", "/bin/sh", "-c", startup_cmd, NULL);
-			die("startup: execl:");
-		}
-		dup2(piperw[1], STDOUT_FILENO);
-		close(piperw[1]);
-		close(piperw[0]);
-	}
-
-	/* Mark stdout as non-blocking to avoid the startup script
-	 * causing dwl to freeze when a user neither closes stdin
-	 * nor consumes standard input in his startup script */
-
-	if (fd_set_nonblock(STDOUT_FILENO) < 0)
-		close(STDOUT_FILENO);
-
-	printstatus();
-
-	/* At this point the outputs are initialized, choose initial selmon based on
-	 * cursor position, and set default cursor image */
-	selmon = xytomon(cursor->x, cursor->y);
-
-	/* TODO hack to get cursor to display in its initial location (100, 100)
-	 * instead of (0, 0) and then jumping. Still may not be fully
-	 * initialized, as the image/coordinates are not transformed for the
-	 * monitor when displayed here */
-	wlr_cursor_warp_closest(cursor, NULL, cursor->x, cursor->y);
-	wlr_cursor_set_xcursor(cursor, cursor_mgr, "default");
-
-	/* Run the Wayland event loop. This does not return until you exit the
-	 * compositor. Starting the backend rigged up all of the necessary event
-	 * loop configuration to listen to libinput events, DRM events, generate
-	 * frame events at the refresh rate, and so on. */
-	wl_display_run(dpy);
 }
 
 void

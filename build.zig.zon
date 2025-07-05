@@ -28,7 +28,7 @@
 
     // Tracks the earliest Zig version that the package considers to be a
     // supported use case.
-    .minimum_zig_version = "0.15.0-dev.1509+b9a6dae2a",
+    .minimum_zig_version = "0.15.0-dev.1593+399bace2f",
 
     // This field is optional.
     // Each dependency must either provide a `url` and `hash`, or a `path`.
@@ -39,6 +39,22 @@
         .flags = .{
             .url = "git+https://github.com/n0s4/flags#98800a0ea483e59dfc3da07cb3e0043c78a713d1",
             .hash = "flags-0.10.0-a_9h3k13AAA0GlPTaPPvGFExbauHLoHUN3rvR7F8TaGm",
+        },
+        .wayland = .{
+            .url = "git+https://codeberg.org/ifreund/zig-wayland#c1b7b780321dcece60f845e6b2fdfed26feed3d4",
+            .hash = "wayland-0.4.0-dev-lQa1knDLAQDU2xQwnQFF1CzRj8fvWmJ6QftZUgmY-n1t",
+        },
+        .wlroots = .{
+            .url = "git+https://codeberg.org/ifreund/zig-wlroots?ref=next-zig#69f49a722c062f0d82e0df223259c8fc9d9447b7",
+            .hash = "wlroots-0.19.3-dev-jmOlcsj9AwAacfQGLUduSnmw74KLx2tug57mdLzzfmCx",
+        },
+        .xkbcommon = .{
+            .url = "git+https://codeberg.org/ifreund/zig-xkbcommon#87e0910e12af79cbb74a37143c881abea32c96b7",
+            .hash = "xkbcommon-0.4.0-dev-VDqIe3a9AQDQa1H4Vh7__mVphznD-7tyNWdnjFgf-9fC",
+        },
+        .pixman = .{
+            .url = "git+https://codeberg.org/ifreund/zig-pixman#387f04a0289a69d159c88b5f70396ec12a8ddb00",
+            .hash = "pixman-0.4.0-dev-LClMn0eVAAAlXnMK-MVBZkOG0urNdOPGVQdaGecXPM5O",
         },
     },
 
