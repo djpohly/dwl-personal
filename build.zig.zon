@@ -36,6 +36,10 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
+        .flags = .{
+            .url = "git+https://github.com/n0s4/flags#98800a0ea483e59dfc3da07cb3e0043c78a713d1",
+            .hash = "flags-0.10.0-a_9h3k13AAA0GlPTaPPvGFExbauHLoHUN3rvR7F8TaGm",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.

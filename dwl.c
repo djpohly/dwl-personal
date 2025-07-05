@@ -252,7 +252,7 @@ static void axisnotify(struct wl_listener *listener, void *data);
 static void buttonpress(struct wl_listener *listener, void *data);
 static void chvt(const Arg *arg);
 static void checkidleinhibitor(struct wlr_surface *exclude);
-static void cleanup(void);
+void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
 static void cleanuplisteners(void);
 static void closemon(Monitor *m);
@@ -321,7 +321,7 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
-static void run(char *startup_cmd);
+void run(char *startup_cmd);
 static void setcursor(struct wl_listener *listener, void *data);
 static void setcursorshape(struct wl_listener *listener, void *data);
 static void setfloating(Client *c, int floating);
@@ -331,7 +331,7 @@ static void setmfact(const Arg *arg);
 static void setmon(Client *c, Monitor *m, uint32_t newtags);
 static void setpsel(struct wl_listener *listener, void *data);
 static void setsel(struct wl_listener *listener, void *data);
-static void setup(void);
+void setup(void);
 static void spawn(const Arg *arg);
 static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
@@ -3232,37 +3232,6 @@ xwaylandready(struct wl_listener *listener, void *data)
 				xcursor->images[0]->hotspot_x, xcursor->images[0]->hotspot_y);
 }
 #endif
-
-int
-main(int argc, char *argv[])
-{
-	char *startup_cmd = NULL;
-	int c;
-
-	while ((c = getopt(argc, argv, "s:hdv")) != -1) {
-		if (c == 's')
-			startup_cmd = optarg;
-		else if (c == 'd')
-			log_level = WLR_DEBUG;
-		else if (c == 'v')
-			die("dwl " VERSION);
-		else
-			goto usage;
-	}
-	if (optind < argc)
-		goto usage;
-
-	/* Wayland requires XDG_RUNTIME_DIR for creating its communications socket */
-	if (!getenv("XDG_RUNTIME_DIR"))
-		die("XDG_RUNTIME_DIR must be set");
-	setup();
-	run(startup_cmd);
-	cleanup();
-	return EXIT_SUCCESS;
-
-usage:
-	die("Usage: %s [-v] [-d] [-s startup command]", argv[0]);
-}
 
 static void
 bstack(Monitor *m) 
