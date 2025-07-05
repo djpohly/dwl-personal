@@ -241,9 +241,9 @@ static void bstackhoriz(Monitor *m);
 static pid_t child_pid = -1;
 static int locked;
 static void *exclusive_focus;
-struct wl_display *dpy;
+extern struct wl_display *dpy;
 static struct wl_event_loop *event_loop;
-struct wlr_backend *backend;
+extern struct wlr_backend *backend;
 static struct wlr_scene *scene;
 static struct wlr_scene_tree *layers[NUM_LAYERS];
 static struct wlr_scene_tree *drag_icon;
@@ -272,8 +272,8 @@ static struct wlr_pointer_constraints_v1 *pointer_constraints;
 static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
 static struct wlr_pointer_constraint_v1 *active_constraint;
 
-struct wlr_cursor *cursor;
-struct wlr_xcursor_manager *cursor_mgr;
+extern struct wlr_cursor *cursor;
+extern struct wlr_xcursor_manager *cursor_mgr;
 
 static struct wlr_scene_rect *root_bg;
 static struct wlr_session_lock_manager_v1 *session_lock_mgr;
@@ -286,10 +286,10 @@ static unsigned int cursor_mode;
 static Client *grabc;
 static int grabcx, grabcy; /* client-relative */
 
-struct wlr_output_layout *output_layout;
+extern struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
 static struct wl_list mons;
-Monitor *selmon;
+extern Monitor *selmon;
 
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};

@@ -106,12 +106,12 @@ fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
 }
 
-extern var backend: *wlroots.Backend;
-extern var cursor: *wlroots.Cursor;
-extern var cursor_mgr: *wlroots.XcursorManager;
-extern var dpy: *wl.Server;
-extern var output_layout: *wlroots.OutputLayout;
-extern var selmon: ?*C.Monitor;
+export var backend: *wlroots.Backend = undefined;
+export var cursor: *wlroots.Cursor = undefined;
+export var cursor_mgr: *wlroots.XcursorManager = undefined;
+export var dpy: *wl.Server = undefined;
+export var output_layout: *wlroots.OutputLayout = undefined;
+export var selmon: ?*C.Monitor = null;
 
 extern fn setup() void;
 extern fn cleanup() void;
