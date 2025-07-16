@@ -133,6 +133,7 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 /* commands */
 static const char *termcmd[] = { "foot", NULL };
 static const char *menucmd[] = { "wmenu-run", NULL };
+static const char *colorcmd[] = { "wcolor", NULL };
 static const char *lockcmd[]  = { "wllock", NULL };
 static const char *wificmd[]  = { "wpass", NULL };
 static const char *lowervolcmd[]  = { "amixer", "-q", "sset", "Master", "3%-", NULL };
@@ -163,25 +164,26 @@ static const Key keys[] = {
 	{ MODKEY,                    XKB_KEY_w,          spawn,          {.v = wificmd},     .override_lock = 1 },
 	{ 0,                     XKB_KEY_XF86PowerOff,   spawn,          {.v = pbutcmd},     .override_lock = 1 },
 	{ 0,             XKB_KEY_XF86AudioLowerVolume,   spawn,          {.v = lowervolcmd}, .override_lock = 1 },
+	{ MODKEY,                    XKB_KEY_Next,       spawn,          {.v = lowervolcmd}, .override_lock = 1 },
 	{ 0,             XKB_KEY_XF86AudioRaiseVolume,   spawn,          {.v = raisevolcmd}, .override_lock = 1 },
+	{ MODKEY,                    XKB_KEY_Prior,      spawn,          {.v = raisevolcmd}, .override_lock = 1 },
 	{ 0,                    XKB_KEY_XF86AudioMute,   spawn,          {.v = mutecmd},     .override_lock = 1 },
-	{ 0,                    XKB_KEY_XF86AudioPlay,   spawn,          {.v = playcmd},     .override_lock = 1 },
-	{ 0,                    XKB_KEY_XF86AudioStop,   spawn,          {.v = stopcmd},     .override_lock = 1 },
-	{ 0,                    XKB_KEY_XF86AudioPrev,   spawn,          {.v = prevcmd},     .override_lock = 1 },
-	{ 0,                    XKB_KEY_XF86AudioNext,   spawn,          {.v = nextcmd},     .override_lock = 1 },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Next,       spawn,          {.v = mutecmd},     .override_lock = 1 },
 	{ 0,              XKB_KEY_XF86MonBrightnessUp,   spawn,          {.v = brightupcmd}, .override_lock = 1 },
 	{ 0,            XKB_KEY_XF86MonBrightnessDown,   spawn,          {.v = brightdncmd}, .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Next,       spawn,          {.v = lowervolcmd}, .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Prior,      spawn,          {.v = raisevolcmd}, .override_lock = 1 },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_Next,       spawn,          {.v = mutecmd},     .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Insert,     spawn,          {.v = playcmd},     .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Delete,     spawn,          {.v = stopcmd},     .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Home,       spawn,          {.v = prevcmd},     .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_End,        spawn,          {.v = nextcmd},     .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Left,       spawn,          {.v = rewcmd},      .override_lock = 1 },
-	{ MODKEY,                    XKB_KEY_Right,      spawn,          {.v = ffcmd},       .override_lock = 1 },
+	{ 0,                    XKB_KEY_XF86AudioPlay,   spawn,          {.v = playcmd}},
+	{ 0,                    XKB_KEY_XF86AudioStop,   spawn,          {.v = stopcmd}},
+	{ 0,                    XKB_KEY_XF86AudioPrev,   spawn,          {.v = prevcmd}},
+	{ 0,                    XKB_KEY_XF86AudioNext,   spawn,          {.v = nextcmd}},
+	{ MODKEY,                    XKB_KEY_Insert,     spawn,          {.v = playcmd}},
+	{ MODKEY,                    XKB_KEY_Delete,     spawn,          {.v = stopcmd}},
+	{ MODKEY,                    XKB_KEY_Home,       spawn,          {.v = prevcmd}},
+	{ MODKEY,                    XKB_KEY_End,        spawn,          {.v = nextcmd}},
+	{ MODKEY,                    XKB_KEY_Left,       spawn,          {.v = rewcmd}},
+	{ MODKEY,                    XKB_KEY_Right,      spawn,          {.v = ffcmd}},
 	{ MODKEY,                    XKB_KEY_a,          spawn,          {.v = mediacmd} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_A,          spawn,          {.v = mediadlcmd} },
+	{ MODKEY,                    XKB_KEY_c,          spawn,          {.v = colorcmd}},
 	{ MODKEY,                    XKB_KEY_t,          focusstack,     {.i = +1} },
 	{ MODKEY,                    XKB_KEY_n,          focusstack,     {.i = -1} },
 	{ MODKEY,                    XKB_KEY_Tab,        focusstack,     {.i = +1} },
