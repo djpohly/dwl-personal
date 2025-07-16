@@ -1159,9 +1159,6 @@ createpointer(struct wlr_pointer *pointer)
 			libinput_device_config_tap_set_button_map(device, button_map);
 		}
 
-		if (libinput_device_config_scroll_has_natural_scroll(device))
-			libinput_device_config_scroll_set_natural_scroll_enabled(device, natural_scrolling);
-
 		if (libinput_device_config_dwt_is_available(device))
 			libinput_device_config_dwt_set_enabled(device, disable_while_typing);
 
@@ -1173,6 +1170,15 @@ createpointer(struct wlr_pointer *pointer)
 
 		if (libinput_device_config_scroll_get_methods(device) != LIBINPUT_CONFIG_SCROLL_NO_SCROLL)
 			libinput_device_config_scroll_set_method(device, scroll_method);
+
+		if (libinput_device_config_scroll_has_natural_scroll(device)) {
+			switch (libinput_device_config_scroll_get_method(device)) {
+				case LIBINPUT_CONFIG_SCROLL_2FG:
+				case LIBINPUT_CONFIG_SCROLL_EDGE:
+					libinput_device_config_scroll_set_natural_scroll_enabled(device, natural_scrolling);
+					break;
+			}
+		}
 
 		if (libinput_device_config_click_get_methods(device) != LIBINPUT_CONFIG_CLICK_METHOD_NONE)
 			libinput_device_config_click_set_method(device, click_method);
