@@ -151,6 +151,7 @@ static const char *quitcmd[] = { "/bin/sh", "-c", "s6-svscanctl -t \"${ANOPA_SCA
 static const char *mediacmd[] = { "mpvclip", NULL };
 static const char *mediadlcmd[] = { "dlclip", NULL };
 static const char *pbutcmd[]  = { "pbut", NULL };
+static const char *screenshotcmd[] = { "grim", "NULL" };
 
 static const Key keys[] = {
 	/* Note that Shift changes certain key codes: c -> C, 2 -> at, etc. */
@@ -184,6 +185,7 @@ static const Key keys[] = {
 	{ MODKEY,                    XKB_KEY_a,          spawn,          {.v = mediacmd} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_A,          spawn,          {.v = mediadlcmd} },
 	{ MODKEY,                    XKB_KEY_c,          spawn,          {.v = colorcmd}},
+	{ MODKEY,                    XKB_KEY_Print,      spawn,          {.v = screenshotcmd}},
 	{ MODKEY,                    XKB_KEY_t,          focusstack,     {.i = +1} },
 	{ MODKEY,                    XKB_KEY_n,          focusstack,     {.i = -1} },
 	{ MODKEY,                    XKB_KEY_Tab,        focusstack,     {.i = +1} },
