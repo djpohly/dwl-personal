@@ -6,16 +6,34 @@ const flags = @import("flags");
 const C = @import("C");
 const posix = std.posix;
 const F = posix.F;
+const SIG = posix.SIG;
+const SA = posix.SA;
 const O = std.os.linux.O;
+const config = @import("config.zig");
 
 var environ: std.process.EnvMap = undefined;
 var child_proc: ?std.process.Child = null;
 
+const Layer = enum {
+    bg,
+    bottom,
+    tile,
+    float,
+    top,
+    fs,
+    overlay,
+    block,
+};
+
 pub fn main() !void {
     var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
     defer arena.deinit();
+    var gpa: std.heap.DebugAllocator(.{}) = .init;
+    defer _ = gpa.deinit();
+    const alloc = gpa.allocator();
 
-    const args = try std.process.argsAlloc(arena.allocator());
+    const args = try std.process.argsAlloc(alloc);
+    defer std.process.argsFree(alloc, args);
 
     const options = flags.parseOrExit(args, "dwl", struct {
         @"startup-cmd": ?[:0]const u8 = null,
@@ -31,12 +49,59 @@ pub fn main() !void {
 
     if (std.c.getenv("XDG_RUNTIME_DIR") == null) die("XDG_RUNTIME_DIR must be set");
 
-    environ = try std.process.getEnvMap(arena.allocator());
+    environ = try std.process.getEnvMap(alloc);
     defer environ.deinit();
 
-    setup();
-    try run(arena.allocator(), options.@"startup-cmd");
+    try setup();
+    try run(alloc, options.@"startup-cmd");
     cleanup();
+}
+
+fn setup() !void {
+    const sa: posix.Sigaction = .{
+        .flags = SA.RESTART,
+        .handler = .{ .handler = handlesig },
+        .mask = posix.sigemptyset(),
+    };
+    inline for (&.{SIG.CHLD, SIG.INT, SIG.TERM, SIG.PIPE}) |sig| {
+        posix.sigaction(sig, &sa, null);
+    }
+
+    wlroots.log.init(config.log_level, null);
+
+    // The Wayland server ("display") is managed by libwayland. It handles accepting
+    // clients from the Unix socket, managing Wayland globals, and so on.
+    dpy = try .create();
+    errdefer dpy.destroy();
+
+    event_loop = dpy.getEventLoop();
+
+    // The backend is a wlroots feature which abstracts the underlying input and
+    // output hardware. The autocreate option will choose the most suitable
+    // backend based on the current environment, such as opening an X11 window
+    // if an X11 server is running.
+    backend = try .autocreate(event_loop, &session);
+    errdefer backend.destroy();
+
+    // Initialize the scene graph used to lay out windows
+    scene = try .create();
+    errdefer scene.tree.node.destroy();
+
+    root_bg = try scene.tree.createSceneRect(0, 0, config.rootcolor);
+    errdefer root_bg.node.destroy();
+
+    var init_layers: std.ArrayListUnmanaged(*wlroots.SceneTree) = .initBuffer(&layers);
+    errdefer for (init_layers.items) |layer| layer.node.destroy();
+    for (0..layers.len) |_| {
+        init_layers.appendAssumeCapacity(try scene.tree.createSceneTree());
+    }
+
+    drag_icon = try scene.tree.createSceneTree();
+    errdefer drag_icon.node.destroy();
+
+    drag_icon.node.placeBelow(&layers[@intFromEnum(Layer.block)].node);
+
+    _setup();
 }
 
 fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
@@ -44,13 +109,11 @@ fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     var sockname_buf: [11]u8 = undefined;
     const sockname = try dpy.addSocketAuto(&sockname_buf);
     try environ.put("WAYLAND_DISPLAY", sockname);
-    std.c.environ = try std.process.createEnvironFromMap(alloc, &environ, .{});
+    const env = try std.process.createEnvironFromMap(alloc, &environ, .{});
+    defer for (env) |item| alloc.free(std.mem.span(item.?));
+    defer alloc.free(env);
 
-    // Start the backend. This will enumerate outputs and inputs, become the DRM
-    // master, etc
-    try wlroots.Backend.start(backend);
-
-    // Now that the socket exists and the backend is started, run the startup command
+    // Now that it has a socket to communicate with, run the startup command
     if (startup_cmd) |cmd| {
         var child: std.process.Child = .init(&.{ "/bin/sh", "-c", cmd }, alloc);
         child.env_map = &environ;
@@ -60,7 +123,7 @@ fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
         try child.spawn();
         errdefer exit_child(&child);
 
-        child_proc = child;
+        try posix.dup2(child.stdin.?.handle, posix.STDOUT_FILENO);
     }
     defer if (child_proc) |*child| exit_child(child);
 
@@ -71,6 +134,10 @@ fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     _ = try posix.fcntl(fd, F.SETFL, try posix.fcntl(fd, F.GETFL, 0) | @as(u32, @bitCast(O{.NONBLOCK = true})));
 
     printstatus();
+
+    // Start the backend. This will enumerate outputs and inputs, become the DRM
+    // master, etc
+    try wlroots.Backend.start(backend);
 
     // At this point the outputs are initialized, choose initial selmon based on
     // cursor position, and set default cursor image
@@ -110,10 +177,18 @@ export var backend: *wlroots.Backend = undefined;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
 export var dpy: *wl.Server = undefined;
+export var drag_icon: *wlroots.SceneTree = undefined;
+export var event_loop: *wl.EventLoop = undefined;
+// TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
+extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 export var output_layout: *wlroots.OutputLayout = undefined;
+export var root_bg: *wlroots.SceneRect = undefined;
+export var scene: *wlroots.Scene = undefined;
 export var selmon: ?*C.Monitor = null;
+export var session: ?*wlroots.Session = null;
 
-extern fn setup() void;
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
+extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
+extern fn _setup() void;

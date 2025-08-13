@@ -23,7 +23,10 @@ pub fn build(b: *std.Build) !void {
     const wayland = b.createModule(.{ .root_source_file = scanner.result });
 
     // Dependencies
-    const flags = b.dependency("flags", .{}).module("flags");
+    const flags = b.dependency("flags", .{
+        .target = target,
+        .optimize = optimize,
+    }).module("flags");
     const xkbcommon = b.dependency("xkbcommon", .{}).module("xkbcommon");
     const pixman = b.dependency("pixman", .{}).module("pixman");
     const wlroots = b.dependency("wlroots", .{}).module("wlroots");

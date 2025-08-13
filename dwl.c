@@ -170,7 +170,7 @@ static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 static void gpureset(struct wl_listener *listener, void *data);
-static void handlesig(int signo);
+void handlesig(int signo);
 static void incnmaster(const Arg *arg);
 static void inputdevice(struct wl_listener *listener, void *data);
 static int keybinding(uint32_t mods, xkb_keysym_t sym);
@@ -242,17 +242,17 @@ static pid_t child_pid = -1;
 static int locked;
 static void *exclusive_focus;
 extern struct wl_display *dpy;
-static struct wl_event_loop *event_loop;
+extern struct wl_event_loop *event_loop;
 extern struct wlr_backend *backend;
-static struct wlr_scene *scene;
-static struct wlr_scene_tree *layers[NUM_LAYERS];
-static struct wlr_scene_tree *drag_icon;
+extern struct wlr_scene *scene;
+struct wlr_scene_tree *layers[NUM_LAYERS];
+extern struct wlr_scene_tree *drag_icon;
 /* Map from ZWLR_LAYER_SHELL_* constants to Lyr* enum */
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
 static struct wlr_renderer *drw;
 static struct wlr_allocator *alloc;
 static struct wlr_compositor *compositor;
-static struct wlr_session *session;
+extern struct wlr_session *session;
 
 static struct wlr_xdg_shell *xdg_shell;
 static struct wlr_xdg_activation_v1 *activation;
@@ -275,7 +275,7 @@ static struct wlr_pointer_constraint_v1 *active_constraint;
 extern struct wlr_cursor *cursor;
 extern struct wlr_xcursor_manager *cursor_mgr;
 
-static struct wlr_scene_rect *root_bg;
+extern struct wlr_scene_rect *root_bg;
 static struct wlr_session_lock_manager_v1 *session_lock_mgr;
 static struct wlr_scene_rect *locked_bg;
 static struct wlr_session_lock_v1 *cur_lock;
@@ -2302,36 +2302,9 @@ setsel(struct wl_listener *listener, void *data)
 }
 
 void
-setup(void)
+_setup(void)
 {
-	int drm_fd, i, sig[] = {SIGCHLD, SIGINT, SIGTERM, SIGPIPE};
-	struct sigaction sa = {.sa_flags = SA_RESTART, .sa_handler = handlesig};
-	sigemptyset(&sa.sa_mask);
-
-	for (i = 0; i < (int)LENGTH(sig); i++)
-		sigaction(sig[i], &sa, NULL);
-
-	wlr_log_init(log_level, NULL);
-
-	/* The Wayland display is managed by libwayland. It handles accepting
-	 * clients from the Unix socket, manging Wayland globals, and so on. */
-	dpy = wl_display_create();
-	event_loop = wl_display_get_event_loop(dpy);
-
-	/* The backend is a wlroots feature which abstracts the underlying input and
-	 * output hardware. The autocreate option will choose the most suitable
-	 * backend based on the current environment, such as opening an X11 window
-	 * if an X11 server is running. */
-	if (!(backend = wlr_backend_autocreate(event_loop, &session)))
-		die("couldn't create backend");
-
-	/* Initialize the scene graph used to lay out windows */
-	scene = wlr_scene_create();
-	root_bg = wlr_scene_rect_create(&scene->tree, 0, 0, rootcolor);
-	for (i = 0; i < NUM_LAYERS; i++)
-		layers[i] = wlr_scene_tree_create(&scene->tree);
-	drag_icon = wlr_scene_tree_create(&scene->tree);
-	wlr_scene_node_place_below(&drag_icon->node, &layers[LyrBlock]->node);
+	int drm_fd, i;
 
 	/* Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
 	 * can also specify a renderer using the WLR_RENDERER env var.
