@@ -109,9 +109,11 @@ fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     var sockname_buf: [11]u8 = undefined;
     const sockname = try dpy.addSocketAuto(&sockname_buf);
     try environ.put("WAYLAND_DISPLAY", sockname);
-    const env = try std.process.createEnvironFromMap(alloc, &environ, .{});
-    defer for (env) |item| alloc.free(std.mem.span(item.?));
-    defer alloc.free(env);
+
+    var env_arena = std.heap.ArenaAllocator.init(alloc);
+    defer env_arena.deinit();
+    const env = try std.process.createEnvironFromMap(env_arena.allocator(), &environ, .{});
+    _ = env;
 
     // Now that it has a socket to communicate with, run the startup command
     if (startup_cmd) |cmd| {
