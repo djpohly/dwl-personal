@@ -152,7 +152,7 @@ const MonsIterator = struct {
     }
 };
 
-fn gpureset_fallible(_: *wl.Listener(void)) !void {
+fn gpureset(_: *wl.Listener(void)) !void {
     const new_drw: *wlroots.Renderer = try .autocreate(backend);
     errdefer new_drw.destroy();
 
@@ -178,11 +178,37 @@ fn gpureset_fallible(_: *wl.Listener(void)) !void {
     drw.destroy();
 }
 
-fn gpureset(listener: *wl.Listener(void)) void {
-    gpureset_fallible(listener) catch |err| {
-        std.log.err("Error in GPU reset: {s}", .{@errorName(err)});
-        std.debug.dumpCurrentStackTrace(null);
+fn Infallible(Function: anytype) type {
+    const paramInfo = @typeInfo(Function).@"fn".params;
+    switch (paramInfo.len) {
+        1 => return wl.Listener(void),
+        2 => return wl.Listener(paramInfo[1].type),
+        else => @panic("infallibleListener only supports listener functions"),
+    }
+}
+
+fn infallibleListener(f: anytype) Infallible(@TypeOf(f)) {
+    const params = @typeInfo(@TypeOf(f)).@"fn".params;
+    const func = switch (params.len) {
+        1 => struct {
+            fn func(listener: *wl.Listener(void)) void {
+                f(listener) catch |err| {
+                    std.log.err("Error in listener: {s}", .{@errorName(err)});
+                    std.debug.dumpCurrentStackTrace(null);
+                };
+            }
+        }.func,
+        2 => struct {
+            fn func(listener: params[0].type, data: params[1].type) void {
+                f(listener, data) catch |err| {
+                    std.log.err("Error in listener: {s}", .{@errorName(err)});
+                    std.debug.dumpCurrentStackTrace(null);
+                };
+            }
+        }.func,
+        else => @panic("infallible() only supports Listener functions"),
     };
+    return .init(func);
 }
 
 fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
@@ -276,7 +302,7 @@ export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
 
 // Signal handlers
-export var gpu_reset: wl.Listener(void) = .init(gpureset);
+export var gpu_reset = infallibleListener(gpureset);
 
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
