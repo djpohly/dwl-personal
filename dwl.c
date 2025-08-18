@@ -249,7 +249,7 @@ struct wlr_scene_tree *layers[NUM_LAYERS];
 extern struct wlr_scene_tree *drag_icon;
 /* Map from ZWLR_LAYER_SHELL_* constants to Lyr* enum */
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
-static struct wlr_renderer *drw;
+extern struct wlr_renderer *drw;
 static struct wlr_allocator *alloc;
 static struct wlr_compositor *compositor;
 extern struct wlr_session *session;

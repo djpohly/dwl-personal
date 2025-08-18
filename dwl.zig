@@ -180,6 +180,7 @@ export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
+export var drw: *wlroots.Renderer = undefined;
 export var event_loop: *wl.EventLoop = undefined;
 // TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;

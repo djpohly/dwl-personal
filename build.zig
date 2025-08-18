@@ -11,6 +11,20 @@ pub fn build(b: *std.Build) !void {
     const options = b.addOptions();
     options.addOption(bool, "xwayland", xwayland);
 
+    const c = b.addTranslateC(.{
+        .root_source_file = b.path("c.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    c.addSystemIncludePath(b.path("."));
+    c.addSystemIncludePath(.{
+        .cwd_relative = "/usr/include/wlroots-0.19",
+    });
+    c.addSystemIncludePath(.{
+        .cwd_relative = "/usr/include/pixman-1",
+    });
+    c.defineCMacro("WLR_USE_UNSTABLE", "");
+
     // Build Wayland protocols
     const scanner: *Scanner = .create(b, .{});
     scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
@@ -66,6 +80,7 @@ pub fn build(b: *std.Build) !void {
     exe_mod.addImport("flags", flags);
     exe_mod.addImport("wlroots", wlroots);
     exe_mod.addImport("wayland", wayland);
+    exe_mod.addImport("C", c.createModule());
 
     // C sources
     exe_mod.addCSourceFiles(.{ .files = &.{
