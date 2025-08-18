@@ -131,6 +131,25 @@ fn setup() !void {
     // screen
     alloc = try .autocreate(backend, drw);
 
+    // This creates some hands-off wlroots interfaces. The compositor is
+    // necessary for clients to allocate surfaces and the data device manager
+    // handles the clipboard. Each of these wlroots interfaces has room for you
+    // to dig your fingers in and play with their behavior if you want. Note that
+    // the clients cannot set the selection directly without compositor approval,
+    // see the setsel() function.
+    compositor = try .create(dpy, 6, drw);
+    _ = try wlroots.Subcompositor.create(dpy);
+    _ = try wlroots.DataDeviceManager.create(dpy);
+    _ = try wlroots.ExportDmabufManagerV1.create(dpy);
+    _ = try wlroots.ScreencopyManagerV1.create(dpy);
+    _ = try wlroots.DataControlManagerV1.create(dpy);
+    _ = try wlroots.PrimarySelectionDeviceManagerV1.create(dpy);
+    _ = try wlroots.Viewporter.create(dpy);
+    _ = try wlroots.SinglePixelBufferManagerV1.create(dpy);
+    _ = try wlroots.FractionalScaleManagerV1.create(dpy, 1);
+    _ = try wlroots.Presentation.create(dpy, backend, 2);
+    _ = try wlroots.AlphaModifierV1.create(dpy);
+
     _setup();
 }
 

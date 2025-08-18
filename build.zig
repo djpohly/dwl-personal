@@ -35,6 +35,7 @@ pub fn build(b: *std.Build) !void {
     scanner.generate("zwp_tablet_manager_v2", 1);
     scanner.generate("wl_compositor", 4);
     scanner.generate("wl_subcompositor", 1);
+    scanner.generate("wl_data_device_manager", 3);
 
     const wayland = b.createModule(.{ .root_source_file = scanner.result });
 

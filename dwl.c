@@ -2280,25 +2280,6 @@ _setup(void)
 {
 	int i;
 
-	/* This creates some hands-off wlroots interfaces. The compositor is
-	 * necessary for clients to allocate surfaces and the data device manager
-	 * handles the clipboard. Each of these wlroots interfaces has room for you
-	 * to dig your fingers in and play with their behavior if you want. Note that
-	 * the clients cannot set the selection directly without compositor approval,
-	 * see the setsel() function. */
-	compositor = wlr_compositor_create(dpy, 6, drw);
-	wlr_subcompositor_create(dpy);
-	wlr_data_device_manager_create(dpy);
-	wlr_export_dmabuf_manager_v1_create(dpy);
-	wlr_screencopy_manager_v1_create(dpy);
-	wlr_data_control_manager_v1_create(dpy);
-	wlr_primary_selection_v1_device_manager_create(dpy);
-	wlr_viewporter_create(dpy);
-	wlr_single_pixel_buffer_manager_v1_create(dpy);
-	wlr_fractional_scale_manager_v1_create(dpy, 1);
-	wlr_presentation_create(dpy, backend, 2);
-	wlr_alpha_modifier_v1_create(dpy);
-
 	/* Initializes the interface used to implement urgency hints */
 	activation = wlr_xdg_activation_v1_create(dpy);
 	wl_signal_add(&activation->events.request_activate, &request_activate);
