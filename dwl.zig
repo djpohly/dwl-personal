@@ -30,10 +30,9 @@ pub fn main() !void {
     defer arena.deinit();
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
-    const alloc = gpa.allocator();
 
-    const args = try std.process.argsAlloc(alloc);
-    defer std.process.argsFree(alloc, args);
+    const args = try std.process.argsAlloc(gpa.allocator());
+    defer std.process.argsFree(gpa.allocator(), args);
 
     const options = flags.parseOrExit(args, "dwl", struct {
         @"startup-cmd": ?[:0]const u8 = null,
@@ -49,11 +48,11 @@ pub fn main() !void {
 
     if (std.c.getenv("XDG_RUNTIME_DIR") == null) die("XDG_RUNTIME_DIR must be set");
 
-    environ = try std.process.getEnvMap(alloc);
+    environ = try std.process.getEnvMap(gpa.allocator());
     defer environ.deinit();
 
     try setup();
-    try run(alloc, options.@"startup-cmd");
+    try run(gpa.allocator(), options.@"startup-cmd");
     cleanup();
 }
 
@@ -101,23 +100,59 @@ fn setup() !void {
 
     drag_icon.node.placeBelow(&layers[@intFromEnum(Layer.block)].node);
 
+    // Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
+    // can also specify a renderer using the WLR_RENDERER env var.
+    // The renderer is responsible for defining the various pixel formats it
+    // supports for shared memory, this configures that for clients.
+    drw = try .autocreate(backend);
+    drw.events.lost.add(&gpu_reset);
+
+    // Create shm, drm and linux_dmabuf interfaces by ourselves.
+    // The simplest way is to call:
+    //      try drw.initServer(dpy);
+    // but we need to create the linux_dmabuf interface manually to integrate it
+    // with wlr_scene.
+    try drw.initWlShm(dpy);
+
+    if (drw.getTextureFormats(@intFromEnum(wlroots.BufferCap.dmabuf))) |_| {
+        _ = try wlroots.Drm.create(dpy, drw);
+
+        scene.setLinuxDmabufV1(try wlroots.LinuxDmabufV1.createWithRenderer(dpy, 5, drw));
+    }
+
+    const drm_fd = drw.getDrmFd();
+    if (drm_fd >= 0 and drw.features.timeline and backend.features.timeline) {
+        _ = wlroots.LinuxDrmSyncobjManagerV1.create(dpy, 1, drm_fd);
+    }
+
+    // Autocreates an allocator for us.
+    // The allocator is the bridge between the renderer and the backend. It
+    // handles the buffer creation, allowing wlroots to render onto the
+    // screen
+    alloc = try .autocreate(backend, drw);
+
     _setup();
 }
 
-fn run(alloc: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
+extern fn _gpureset(listener: *wl.Listener(void), data: ?*anyopaque) void;
+fn gpureset(listener: *wl.Listener(void)) void {
+    _gpureset(listener, null);
+}
+
+fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     // Add a Unix socket to the Wayland display.
     var sockname_buf: [11]u8 = undefined;
     const sockname = try dpy.addSocketAuto(&sockname_buf);
     try environ.put("WAYLAND_DISPLAY", sockname);
 
-    var env_arena = std.heap.ArenaAllocator.init(alloc);
+    var env_arena = std.heap.ArenaAllocator.init(gpa);
     defer env_arena.deinit();
     const env = try std.process.createEnvironFromMap(env_arena.allocator(), &environ, .{});
     _ = env;
 
     // Now that it has a socket to communicate with, run the startup command
     if (startup_cmd) |cmd| {
-        var child: std.process.Child = .init(&.{ "/bin/sh", "-c", cmd }, alloc);
+        var child: std.process.Child = .init(&.{ "/bin/sh", "-c", cmd }, gpa);
         child.env_map = &environ;
         child.stdin_behavior = .Pipe;
         child.expand_arg0 = .expand;
@@ -175,6 +210,7 @@ fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
 }
 
+export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
@@ -189,6 +225,9 @@ export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
+
+// Signal handlers
+export var gpu_reset: wl.Listener(void) = .init(gpureset);
 
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;

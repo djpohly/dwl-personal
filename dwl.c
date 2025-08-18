@@ -169,7 +169,7 @@ static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
-static void gpureset(struct wl_listener *listener, void *data);
+void _gpureset(struct wl_listener *listener, void *data);
 void handlesig(int signo);
 static void incnmaster(const Arg *arg);
 static void inputdevice(struct wl_listener *listener, void *data);
@@ -250,7 +250,7 @@ extern struct wlr_scene_tree *drag_icon;
 /* Map from ZWLR_LAYER_SHELL_* constants to Lyr* enum */
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
 extern struct wlr_renderer *drw;
-static struct wlr_allocator *alloc;
+extern struct wlr_allocator *alloc;
 static struct wlr_compositor *compositor;
 extern struct wlr_session *session;
 
@@ -297,7 +297,7 @@ static struct wl_listener cursor_button = {.notify = buttonpress};
 static struct wl_listener cursor_frame = {.notify = cursorframe};
 static struct wl_listener cursor_motion = {.notify = motionrelative};
 static struct wl_listener cursor_motion_absolute = {.notify = motionabsolute};
-static struct wl_listener gpu_reset = {.notify = gpureset};
+extern struct wl_listener gpu_reset;
 static struct wl_listener layout_change = {.notify = updatemons};
 static struct wl_listener new_idle_inhibitor = {.notify = createidleinhibitor};
 static struct wl_listener new_input_device = {.notify = inputdevice};
@@ -1425,7 +1425,7 @@ fullscreennotify(struct wl_listener *listener, void *data)
 }
 
 void
-gpureset(struct wl_listener *listener, void *data)
+_gpureset(struct wl_listener *listener, void *data)
 {
 	struct wlr_renderer *old_drw = drw;
 	struct wlr_allocator *old_alloc = alloc;
@@ -2304,39 +2304,7 @@ setsel(struct wl_listener *listener, void *data)
 void
 _setup(void)
 {
-	int drm_fd, i;
-
-	/* Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
-	 * can also specify a renderer using the WLR_RENDERER env var.
-	 * The renderer is responsible for defining the various pixel formats it
-	 * supports for shared memory, this configures that for clients. */
-	if (!(drw = wlr_renderer_autocreate(backend)))
-		die("couldn't create renderer");
-	wl_signal_add(&drw->events.lost, &gpu_reset);
-
-	/* Create shm, drm and linux_dmabuf interfaces by ourselves.
-	 * The simplest way is to call:
-	 *      wlr_renderer_init_wl_display(drw);
-	 * but we need to create the linux_dmabuf interface manually to integrate it
-	 * with wlr_scene. */
-	wlr_renderer_init_wl_shm(drw, dpy);
-
-	if (wlr_renderer_get_texture_formats(drw, WLR_BUFFER_CAP_DMABUF)) {
-		wlr_drm_create(dpy, drw);
-		wlr_scene_set_linux_dmabuf_v1(scene,
-				wlr_linux_dmabuf_v1_create_with_renderer(dpy, 5, drw));
-	}
-
-	if ((drm_fd = wlr_renderer_get_drm_fd(drw)) >= 0 && drw->features.timeline
-			&& backend->features.timeline)
-		wlr_linux_drm_syncobj_manager_v1_create(dpy, 1, drm_fd);
-
-	/* Autocreates an allocator for us.
-	 * The allocator is the bridge between the renderer and the backend. It
-	 * handles the buffer creation, allowing wlroots to render onto the
-	 * screen */
-	if (!(alloc = wlr_allocator_autocreate(backend, drw)))
-		die("couldn't create allocator");
+	int i;
 
 	/* This creates some hands-off wlroots interfaces. The compositor is
 	 * necessary for clients to allocate surfaces and the data device manager
