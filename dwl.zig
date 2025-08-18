@@ -190,6 +190,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     var sockname_buf: [11]u8 = undefined;
     const sockname = try dpy.addSocketAuto(&sockname_buf);
     try environ.put("WAYLAND_DISPLAY", sockname);
+    _ = C.setenv("WAYLAND_DISPLAY", sockname, 1);
 
     var env_arena = std.heap.ArenaAllocator.init(gpa);
     defer env_arena.deinit();
