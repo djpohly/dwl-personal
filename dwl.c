@@ -169,7 +169,6 @@ static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 static Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
-void _gpureset(struct wl_listener *listener, void *data);
 void handlesig(int signo);
 static void incnmaster(const Arg *arg);
 static void inputdevice(struct wl_listener *listener, void *data);
@@ -251,7 +250,7 @@ extern struct wlr_scene_tree *drag_icon;
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
 extern struct wlr_renderer *drw;
 extern struct wlr_allocator *alloc;
-static struct wlr_compositor *compositor;
+extern struct wlr_compositor *compositor;
 extern struct wlr_session *session;
 
 static struct wlr_xdg_shell *xdg_shell;
@@ -288,7 +287,7 @@ static int grabcx, grabcy; /* client-relative */
 
 extern struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
-static struct wl_list mons;
+extern struct wl_list mons;
 extern Monitor *selmon;
 
 /* global event handlers */
@@ -1422,31 +1421,6 @@ fullscreennotify(struct wl_listener *listener, void *data)
 {
 	Client *c = wl_container_of(listener, c, fullscreen);
 	setfullscreen(c, client_wants_fullscreen(c));
-}
-
-void
-_gpureset(struct wl_listener *listener, void *data)
-{
-	struct wlr_renderer *old_drw = drw;
-	struct wlr_allocator *old_alloc = alloc;
-	struct Monitor *m;
-	if (!(drw = wlr_renderer_autocreate(backend)))
-		die("couldn't recreate renderer");
-
-	if (!(alloc = wlr_allocator_autocreate(backend, drw)))
-		die("couldn't recreate allocator");
-
-	wl_list_remove(&gpu_reset.link);
-	wl_signal_add(&drw->events.lost, &gpu_reset);
-
-	wlr_compositor_set_renderer(compositor, drw);
-
-	wl_list_for_each(m, &mons, link) {
-		wlr_output_init_render(m->wlr_output, alloc, drw);
-	}
-
-	wlr_allocator_destroy(old_alloc);
-	wlr_renderer_destroy(old_drw);
 }
 
 void

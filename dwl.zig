@@ -134,9 +134,55 @@ fn setup() !void {
     _setup();
 }
 
-extern fn _gpureset(listener: *wl.Listener(void), data: ?*anyopaque) void;
+const MonsIterator = struct {
+    head: *wl.list.Link,
+    current: *wl.list.Link,
+
+    pub const init: MonsIterator = .{ .head = &mons.link, .current = &mons.link };
+
+    pub fn next(it: *@This()) ?*C.Monitor {
+        it.current = it.current.next.?;
+        if (it.current == it.head) return null;
+        return elemFromLink(it.current);
+    }
+
+    fn elemFromLink(link: *wl.list.Link) *C.Monitor {
+        const cast_link: *C.wl_list = @ptrCast(link);
+        return @fieldParentPtr("link", cast_link);
+    }
+};
+
+fn gpureset_fallible(_: *wl.Listener(void)) !void {
+    const new_drw: *wlroots.Renderer = try .autocreate(backend);
+    errdefer new_drw.destroy();
+
+    const new_alloc: *wlroots.Allocator = try .autocreate(backend, drw);
+    errdefer new_alloc.destroy();
+
+    // Remove from old drw, add to new
+    gpu_reset.link.remove();
+    new_drw.events.lost.add(&gpu_reset);
+
+    compositor.setRenderer(new_drw);
+
+    var it: MonsIterator = .init;
+    while (it.next()) |m| {
+        const output: *wlroots.Output = @ptrCast(m.wlr_output);
+        _ = output.initRender(new_alloc, new_drw);
+    }
+
+    drw = new_drw;
+    alloc = new_alloc;
+
+    alloc.destroy();
+    drw.destroy();
+}
+
 fn gpureset(listener: *wl.Listener(void)) void {
-    _gpureset(listener, null);
+    gpureset_fallible(listener) catch |err| {
+        std.log.err("Error in GPU reset: {s}", .{@errorName(err)});
+        std.debug.dumpCurrentStackTrace(null);
+    };
 }
 
 fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
@@ -212,6 +258,7 @@ fn print_child(comptime fmt: []const u8, args: anytype) !void {
 
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
+export var compositor: *wlroots.Compositor = undefined;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
 export var dpy: *wl.Server = undefined;
@@ -220,6 +267,7 @@ export var drw: *wlroots.Renderer = undefined;
 export var event_loop: *wl.EventLoop = undefined;
 // TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
+export var mons: wl.list.Head(C.Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
