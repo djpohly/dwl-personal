@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) !void {
     options.addOption(bool, "xwayland", xwayland);
 
     const c = b.addTranslateC(.{
-        .root_source_file = b.path("c.h"),
+        .root_source_file = b.path("internal.h"),
         .target = target,
         .optimize = optimize,
     });
