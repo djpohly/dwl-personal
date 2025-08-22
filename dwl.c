@@ -145,7 +145,7 @@ static void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
 static void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
-static void createmon(struct wl_listener *listener, void *data);
+void createmon(struct wl_listener *listener, void *data);
 static void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
 static void createpointerconstraint(struct wl_listener *listener, void *data);
@@ -302,7 +302,7 @@ static struct wl_listener new_input_device = {.notify = inputdevice};
 static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
 static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
 static struct wl_listener new_pointer_constraint = {.notify = createpointerconstraint};
-static struct wl_listener new_output = {.notify = createmon};
+extern struct wl_listener new_output;
 static struct wl_listener new_xdg_toplevel = {.notify = createnotify};
 static struct wl_listener new_xdg_popup = {.notify = createpopup};
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
@@ -2278,13 +2278,6 @@ void
 _setup(void)
 {
 	int i;
-
-    wlr_xdg_output_manager_v1_create(dpy, output_layout);
-
-	/* Configure a listener to be notified when new outputs are available on the
-	 * backend. */
-	wl_list_init(&mons);
-	wl_signal_add(&backend->events.new_output, &new_output);
 
 	/* Set up our client lists, the xdg-shell and the layer-shell. The xdg-shell is a
 	 * Wayland protocol which is used for application windows. For more

@@ -168,6 +168,13 @@ fn setup() !void {
     output_layout = try .create(dpy);
     output_layout.events.change.add(&layout_change);
 
+    _ = try wlroots.XdgOutputManagerV1.create(dpy, output_layout);
+
+    // Configure a listener to be notified when new outputs are available on the
+    // backend.
+    mons.init();
+    backend.events.new_output.add(&new_output);
+
     _setup();
 }
 
@@ -381,12 +388,15 @@ export var session: ?*wlroots.Session = null;
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
 export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
+export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
 export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
 
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
+fn _createmon(listener: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(listener, event); }
+extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
