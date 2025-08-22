@@ -252,19 +252,17 @@ extern struct wlr_allocator *alloc;
 extern struct wlr_compositor *compositor;
 extern struct wlr_session *session;
 
-static struct wlr_xdg_shell *xdg_shell;
-extern struct wlr_xdg_activation_v1 *activation;
-static struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
-static struct wl_list clients; /* tiling order */
-static struct wl_list fstack;  /* focus order */
-static struct wlr_idle_notifier_v1 *idle_notifier;
-static struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
-static struct wlr_layer_shell_v1 *layer_shell;
-static struct wlr_output_manager_v1 *output_mgr;
-static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
-static struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
-static struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
-static struct wlr_output_power_manager_v1 *power_mgr;
+extern struct wlr_xdg_shell *xdg_shell;
+extern struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
+extern struct wl_list clients; /* tiling order */
+extern struct wl_list fstack;  /* focus order */
+extern struct wlr_idle_notifier_v1 *idle_notifier;
+extern struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
+extern struct wlr_layer_shell_v1 *layer_shell;
+extern struct wlr_output_manager_v1 *output_mgr;
+extern struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
+extern struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
+extern struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
 
 static struct wlr_pointer_constraints_v1 *pointer_constraints;
 static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
@@ -2278,15 +2276,6 @@ void
 _setup(void)
 {
 	int i;
-
-	/* Set up our client lists, the xdg-shell and the layer-shell. The xdg-shell is a
-	 * Wayland protocol which is used for application windows. For more
-	 * detail on shells, refer to the article:
-	 *
-	 * https://drewdevault.com/2018/07/29/Wayland-shells.html
-	 */
-	wl_list_init(&clients);
-	wl_list_init(&fstack);
 
 	xdg_shell = wlr_xdg_shell_create(dpy, 6);
 	wl_signal_add(&xdg_shell->events.new_toplevel, &new_xdg_toplevel);

@@ -175,6 +175,10 @@ fn setup() !void {
     mons.init();
     backend.events.new_output.add(&new_output);
 
+    // Set up our client lists, the xdg-shell and the layer-shell
+    clients.init();
+    fstack.init();
+
     _setup();
 }
 
@@ -368,22 +372,34 @@ fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
 export var activation: *wlroots.XdgActivationV1 = undefined;
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
+export var clients: wl.list.Head(C.Client, .link) = undefined;
 export var compositor: *wlroots.Compositor = undefined;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
+export var cursor_shape_mgr: ?*wlroots.CursorShapeManagerV1 = null;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
 export var drw: *wlroots.Renderer = undefined;
 export var event_loop: *wl.EventLoop = undefined;
-// TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
-extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
+export var fstack: wl.list.Head(C.Client, .flink) = undefined;
+export var idle_inhibit_mgr: ?*wlroots.IdleInhibitManagerV1 = null;
+export var idle_notifier: ?*wlroots.IdleNotifierV1 = null;
+export var layer_shell: ?*wlroots.LayerShellV1 = null;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
+export var output_mgr: ?*wlroots.OutputManagerV1 = null;
 export var power_mgr: *wlroots.OutputPowerManagerV1 = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
+export var virtual_keyboard_mgr: ?*wlroots.VirtualKeyboardManagerV1 = null;
+export var virtual_pointer_mgr: ?*wlroots.VirtualPointerManagerV1 = null;
+export var xdg_decoration_mgr: ?*wlroots.XdgDecorationManagerV1 = null;
+export var xdg_shell: ?*wlroots.XdgShell = null;
+
+// TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
+extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);

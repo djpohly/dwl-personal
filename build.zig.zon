@@ -41,12 +41,12 @@
             .hash = "flags-0.10.0-a_9h3k13AAA0GlPTaPPvGFExbauHLoHUN3rvR7F8TaGm",
         },
         .wayland = .{
-            .url = "git+https://codeberg.org/ifreund/zig-wayland#c1b7b780321dcece60f845e6b2fdfed26feed3d4",
-            .hash = "wayland-0.4.0-dev-lQa1knDLAQDU2xQwnQFF1CzRj8fvWmJ6QftZUgmY-n1t",
+            .url = "git+https://codeberg.org/ifreund/zig-wayland#1b5c038ec10da20ed3a15b0b2a6db1c21383e8ea",
+            .hash = "wayland-0.5.0-dev-lQa1khrMAQDJDwYFKpdH3HizherB7sHo5dKMECfvxQHe",
         },
         .wlroots = .{
-            .url = "git+https://codeberg.org/ifreund/zig-wlroots?ref=next-zig#69f49a722c062f0d82e0df223259c8fc9d9447b7",
-            .hash = "wlroots-0.19.3-dev-jmOlcsj9AwAacfQGLUduSnmw74KLx2tug57mdLzzfmCx",
+            .url = "git+https://codeberg.org/ifreund/zig-wlroots#01a33c3e28f94040a697b309e3d991c6b9a811bb",
+            .hash = "wlroots-0.19.4-dev-jmOlcub_AwA7fkyBDcWyMqaFRMCASWRIRNBwoniLZKfq",
         },
         .xkbcommon = .{
             .url = "git+https://codeberg.org/ifreund/zig-xkbcommon#87e0910e12af79cbb74a37143c881abea32c96b7",
