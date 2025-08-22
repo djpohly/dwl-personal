@@ -159,6 +159,9 @@ fn setup() !void {
 
     wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
+    power_mgr = try .create(dpy);
+    power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
+
     _setup();
 }
 
@@ -334,11 +337,14 @@ export var session: ?*wlroots.Session = null;
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
 export var request_activate = infallibleListener(_urgent);
+export var output_power_mgr_set_mode = infallibleListener(_powermgrsetmode);
 
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
+extern fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) void;
+fn _powermgrsetmode(listener: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) !void { powermgrsetmode(listener, event); }
 extern fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void;
 fn _urgent(listener: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) !void { urgent(listener, event); }
 extern fn _setup() void;

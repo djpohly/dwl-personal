@@ -193,7 +193,7 @@ static void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface,
 		double sx, double sy, uint32_t time);
 void printstatus(void);
-static void powermgrsetmode(struct wl_listener *listener, void *data);
+void powermgrsetmode(struct wl_listener *listener, void *data);
 static void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
@@ -310,7 +310,7 @@ static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
 static struct wl_listener new_layer_surface = {.notify = createlayersurface};
 static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
 static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
-static struct wl_listener output_power_mgr_set_mode = {.notify = powermgrsetmode};
+extern struct wl_listener output_power_mgr_set_mode;
 extern struct wl_listener request_activate;
 static struct wl_listener request_cursor = {.notify = setcursor};
 static struct wl_listener request_set_psel = {.notify = setpsel};
@@ -2279,9 +2279,6 @@ void
 _setup(void)
 {
 	int i;
-
-	power_mgr = wlr_output_power_manager_v1_create(dpy);
-	wl_signal_add(&power_mgr->events.set_mode, &output_power_mgr_set_mode);
 
 	/* Creates an output layout, which is a wlroots utility for working with an
 	 * arrangement of screens in a physical layout. */
