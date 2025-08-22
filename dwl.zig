@@ -160,6 +160,9 @@ fn setup() !void {
 
     wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
+    power_mgr = try .create(dpy);
+    power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
+
     _setup();
 }
 
@@ -296,6 +299,23 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     dpy.run();
 }
 
+fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) void {
+    var state: wlroots.Output.State = .init();
+
+    if (@as(?*C.Monitor, @alignCast(@ptrCast(event.output.data)))) |m| {
+        const output: *wlroots.Output = @ptrCast(m.wlr_output);
+        m.gamma_lut_changed = 1;
+        state.setEnabled(event.mode != .off);
+        _ = output.commitState(&state);
+
+        m.asleep = @intFromBool(event.mode == .off);
+        updatemons(null, null);
+    }
+}
+
+// TODO fix types
+extern fn updatemons(_: ?*anyopaque, _: ?*anyopaque) void;
+
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     var maybe_c: ?*C.Client = null;
     _ = toplevel_from_wlr_surface(event.surface, &maybe_c, null);
@@ -359,6 +379,7 @@ export var session: ?*wlroots.Session = null;
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
+export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
 
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
