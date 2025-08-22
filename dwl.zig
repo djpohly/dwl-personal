@@ -163,6 +163,11 @@ fn setup() !void {
     power_mgr = try .create(dpy);
     power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
 
+    // Creates an output layout, which is a wlroots utility for working with an
+    // arrangement of screens in a physical layout.
+    output_layout = try .create(dpy);
+    output_layout.events.change.add(&layout_change);
+
     _setup();
 }
 
@@ -313,9 +318,6 @@ fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode),
     }
 }
 
-// TODO fix types
-extern fn updatemons(_: ?*anyopaque, _: ?*anyopaque) void;
-
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     var maybe_c: ?*C.Client = null;
     _ = toplevel_from_wlr_surface(event.surface, &maybe_c, null);
@@ -378,6 +380,7 @@ export var session: ?*wlroots.Session = null;
 
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
+export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
 export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
 
@@ -389,4 +392,6 @@ extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
 extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
+extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
+fn _updatemons(listener: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(listener, event); }
 extern fn _setup() void;

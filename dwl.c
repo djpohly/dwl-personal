@@ -296,7 +296,7 @@ static struct wl_listener cursor_frame = {.notify = cursorframe};
 static struct wl_listener cursor_motion = {.notify = motionrelative};
 static struct wl_listener cursor_motion_absolute = {.notify = motionabsolute};
 extern struct wl_listener gpu_reset;
-static struct wl_listener layout_change = {.notify = updatemons};
+extern struct wl_listener layout_change;
 static struct wl_listener new_idle_inhibitor = {.notify = createidleinhibitor};
 static struct wl_listener new_input_device = {.notify = inputdevice};
 static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
@@ -2278,11 +2278,6 @@ void
 _setup(void)
 {
 	int i;
-
-	/* Creates an output layout, which is a wlroots utility for working with an
-	 * arrangement of screens in a physical layout. */
-	output_layout = wlr_output_layout_create(dpy);
-	wl_signal_add(&output_layout->events.change, &layout_change);
 
     wlr_xdg_output_manager_v1_create(dpy, output_layout);
 
