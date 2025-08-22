@@ -296,7 +296,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     dpy.run();
 }
 
-export fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
+fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     var maybe_c: ?*C.Client = null;
     _ = toplevel_from_wlr_surface(event.surface, &maybe_c, null);
     if (maybe_c) |c| {
@@ -358,7 +358,7 @@ export var session: ?*wlroots.Session = null;
 
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
-extern var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate);
+export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
 
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
