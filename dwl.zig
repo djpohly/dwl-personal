@@ -105,6 +105,8 @@ fn setup() !void {
     // The renderer is responsible for defining the various pixel formats it
     // supports for shared memory, this configures that for clients.
     drw = try .autocreate(backend);
+    errdefer drw.destroy();
+
     drw.events.lost.add(&gpu_reset);
 
     // Create shm, drm and linux_dmabuf interfaces by ourselves.
@@ -130,6 +132,7 @@ fn setup() !void {
     // handles the buffer creation, allowing wlroots to render onto the
     // screen
     alloc = try .autocreate(backend, drw);
+    errdefer alloc.destroy();
 
     // This creates some hands-off wlroots interfaces. The compositor is
     // necessary for clients to allocate surfaces and the data device manager
@@ -149,6 +152,12 @@ fn setup() !void {
     _ = try wlroots.FractionalScaleManagerV1.create(dpy, 1);
     _ = try wlroots.Presentation.create(dpy, backend, 2);
     _ = try wlroots.AlphaModifierV1.create(dpy);
+
+    // Initializes the interface used to implement urgency hints
+    activation = try .create(dpy);
+    activation.events.request_activate.add(&request_activate);
+
+    wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
     _setup();
 }
@@ -201,7 +210,7 @@ fn Infallible(Function: anytype) type {
     const paramInfo = @typeInfo(Function).@"fn".params;
     switch (paramInfo.len) {
         1 => return wl.Listener(void),
-        2 => return wl.Listener(paramInfo[1].type),
+        2 => return wl.Listener(paramInfo[1].type.?),
         else => @panic("infallibleListener only supports listener functions"),
     }
 }
@@ -218,7 +227,7 @@ fn infallibleListener(f: anytype) Infallible(@TypeOf(f)) {
             }
         }.func,
         2 => struct {
-            fn func(listener: params[0].type, data: params[1].type) void {
+            fn func(listener: params[0].type.?, data: params[1].type.?) void {
                 f(listener, data) catch |err| {
                     std.log.err("Error in listener: {s}", .{@errorName(err)});
                     std.debug.dumpCurrentStackTrace(null);
@@ -302,6 +311,7 @@ fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
 }
 
+export var activation: *wlroots.XdgActivationV1 = undefined;
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
 export var compositor: *wlroots.Compositor = undefined;
@@ -315,6 +325,7 @@ export var event_loop: *wl.EventLoop = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
+export var power_mgr: *wlroots.OutputPowerManagerV1 = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
 export var selmon: ?*C.Monitor = null;
@@ -322,9 +333,12 @@ export var session: ?*wlroots.Session = null;
 
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
+export var request_activate = infallibleListener(_urgent);
 
 extern fn cleanup() void;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
+extern fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void;
+fn _urgent(listener: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) !void { urgent(listener, event); }
 extern fn _setup() void;

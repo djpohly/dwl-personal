@@ -28,6 +28,7 @@ pub fn build(b: *std.Build) !void {
     // Build Wayland protocols
     const scanner: *Scanner = .create(b, .{});
     scanner.addSystemProtocol("stable/tablet/tablet-v2.xml");
+    scanner.addCustomProtocol(b.path("protocols/wlr-output-power-management-unstable-v1.xml"));
 
     // From wlroots
     scanner.generate("wl_output", 4);
@@ -36,6 +37,7 @@ pub fn build(b: *std.Build) !void {
     scanner.generate("wl_compositor", 4);
     scanner.generate("wl_subcompositor", 1);
     scanner.generate("wl_data_device_manager", 3);
+    scanner.generate("zwlr_output_power_manager_v1", 1);
 
     const wayland = b.createModule(.{ .root_source_file = scanner.result });
 
