@@ -167,7 +167,7 @@ static Monitor *dirtomon(enum wlr_direction dir);
 static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
-static Client *focustop(Monitor *m);
+Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 void handlesig(int signo);
 static void incnmaster(const Arg *arg);
@@ -193,7 +193,7 @@ static void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface,
 		double sx, double sy, uint32_t time);
 void printstatus(void);
-void powermgrsetmode(struct wl_listener *listener, void *data);
+static void powermgrsetmode(struct wl_listener *listener, void *data);
 static void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
@@ -224,7 +224,7 @@ static void unmaplayersurfacenotify(struct wl_listener *listener, void *data);
 static void unmapnotify(struct wl_listener *listener, void *data);
 static void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
-void urgent(struct wl_listener *listener, void *data);
+extern void urgent(struct wl_listener *listener, void *data);
 static void view(const Arg *arg);
 static void virtualkeyboard(struct wl_listener *listener, void *data);
 static void virtualpointer(struct wl_listener *listener, void *data);
@@ -265,7 +265,7 @@ static struct wlr_output_manager_v1 *output_mgr;
 static struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 static struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
 static struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
-extern struct wlr_output_power_manager_v1 *power_mgr;
+static struct wlr_output_power_manager_v1 *power_mgr;
 
 static struct wlr_pointer_constraints_v1 *pointer_constraints;
 static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
@@ -310,8 +310,8 @@ static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
 static struct wl_listener new_layer_surface = {.notify = createlayersurface};
 static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
 static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
-extern struct wl_listener output_power_mgr_set_mode;
-extern struct wl_listener request_activate;
+static struct wl_listener output_power_mgr_set_mode = {.notify = powermgrsetmode};
+struct wl_listener request_activate = {.notify = urgent};
 static struct wl_listener request_cursor = {.notify = setcursor};
 static struct wl_listener request_set_psel = {.notify = setpsel};
 static struct wl_listener request_set_sel = {.notify = setsel};
@@ -2280,6 +2280,9 @@ _setup(void)
 {
 	int i;
 
+	power_mgr = wlr_output_power_manager_v1_create(dpy);
+	wl_signal_add(&power_mgr->events.set_mode, &output_power_mgr_set_mode);
+
 	/* Creates an output layout, which is a wlroots utility for working with an
 	 * arrangement of screens in a physical layout. */
 	output_layout = wlr_output_layout_create(dpy);
@@ -2694,22 +2697,6 @@ updatetitle(struct wl_listener *listener, void *data)
 	Client *c = wl_container_of(listener, c, set_title);
 	if (c == focustop(c->mon))
 		printstatus();
-}
-
-void
-urgent(struct wl_listener *listener, void *data)
-{
-	struct wlr_xdg_activation_v1_request_activate_event *event = data;
-	Client *c = NULL;
-	toplevel_from_wlr_surface(event->surface, &c, NULL);
-	if (!c || c == focustop(selmon))
-		return;
-
-	c->isurgent = 1;
-	printstatus();
-
-	if (client_surface(c)->mapped)
-		client_set_border_color(c, urgentcolor);
 }
 
 void

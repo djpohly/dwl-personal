@@ -6,7 +6,7 @@
  */
 
 /* Leave these functions first; they're used in the others */
-static inline int
+int
 client_is_x11(Client *c)
 {
 #ifdef XWAYLAND
@@ -15,7 +15,7 @@ client_is_x11(Client *c)
 	return 0;
 }
 
-static inline struct wlr_surface *
+struct wlr_surface *
 client_surface(Client *c)
 {
 #ifdef XWAYLAND
@@ -25,7 +25,7 @@ client_surface(Client *c)
 	return c->surface.xdg->surface;
 }
 
-static inline int
+int
 toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl)
 {
 	struct wlr_xdg_surface *xdg_surface, *tmp_xdg_surface;

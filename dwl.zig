@@ -1,3 +1,4 @@
+const build_options = @import("build_options");
 const std = @import("std");
 const wlroots = @import("wlroots");
 const wayland = @import("wayland");
@@ -159,9 +160,6 @@ fn setup() !void {
 
     wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
-    power_mgr = try .create(dpy);
-    power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
-
     _setup();
 }
 
@@ -298,6 +296,23 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     dpy.run();
 }
 
+export fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
+    var maybe_c: ?*C.Client = null;
+    _ = toplevel_from_wlr_surface(event.surface, &maybe_c, null);
+    if (maybe_c) |c| {
+        if (c == focustop(selmon)) {
+            return;
+        }
+
+        c.isurgent = 1;
+        printstatus();
+
+        if (client_surface(c).mapped) {
+            client_set_border_color(c, config.urgentcolor);
+        }
+    }
+}
+
 export fn xytomon(x: f64, y: f64) ?*C.Monitor {
     return if (output_layout.outputAt(x, y)) |o| @alignCast(@ptrCast(o.data)) else null;
 }
@@ -312,6 +327,13 @@ fn exit_child(child: *std.process.Child) void {
 
 fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
+}
+
+fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
+    for (0..4) |i| {
+        const rect: *wlroots.SceneRect = @ptrCast(c.border[i]);
+        rect.setColor(color);
+    }
 }
 
 export var activation: *wlroots.XdgActivationV1 = undefined;
@@ -336,15 +358,14 @@ export var session: ?*wlroots.Session = null;
 
 // Signal handlers
 export var gpu_reset = infallibleListener(gpureset);
-export var request_activate = infallibleListener(_urgent);
-export var output_power_mgr_set_mode = infallibleListener(_powermgrsetmode);
+extern var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate);
 
 extern fn cleanup() void;
+extern fn client_is_x11(c: *C.Client) c_int;
+extern fn client_surface(c: *C.Client) *wlroots.Surface;
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
+extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
-extern fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) void;
-fn _powermgrsetmode(listener: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) !void { powermgrsetmode(listener, event); }
-extern fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void;
-fn _urgent(listener: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) !void { urgent(listener, event); }
+extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn _setup() void;
