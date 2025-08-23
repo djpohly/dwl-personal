@@ -238,11 +238,13 @@ fn gpureset(_: *wl.Listener(void)) void {
         _ = output.initRender(new_alloc, new_drw);
     }
 
+    const old_drw = drw;
     drw = new_drw;
-    alloc = new_alloc;
+    defer old_drw.destroy();
 
-    alloc.destroy();
-    drw.destroy();
+    const old_alloc = alloc;
+    alloc = new_alloc;
+    defer old_alloc.destroy();
 }
 
 fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
