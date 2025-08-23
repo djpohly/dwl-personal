@@ -250,6 +250,13 @@ fn setup() !void {
     cursor_shape_mgr.events.request_set_shape.add(&request_set_cursor_shape);
     errdefer request_set_cursor_shape.link.remove();
 
+    // Configures a seat, which is a single "seat" at which a user sits and
+    // operates the computer. This conceptually includes up to one keyboard,
+    // pointer, touch, and drawing tablet device. We also rig up a listener to
+    // let us know when new input devices are available on the backend.
+    backend.events.new_input.add(&new_input_device);
+    errdefer new_input_device.link.remove();
+
     _setup();
 }
 
@@ -476,14 +483,15 @@ var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
-export var cursor_axis = listener(_axisnotify);
+export var cursor_axis = listener(axisnotify);
 export var cursor_button = listener(_buttonpress);
-export var cursor_frame = listener(_cursorframe);
+export var cursor_frame = listener(cursorframe);
 export var cursor_motion = listener(_motionrelative);
 export var cursor_motion_absolute = listener(_motionabsolute);
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
 export var new_idle_inhibitor = listener(createidleinhibitor);
+export var new_input_device = listener(inputdevice);
 export var new_layer_surface = listener(_createlayersurface);
 export var new_output = listener(_createmon);
 export var new_pointer_constraint = listener(_createpointerconstraint);
@@ -508,8 +516,53 @@ inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
     return .init(handler);
 }
 
-extern fn axisnotify(*wl.Listener(*wlroots.Pointer.event.Axis), *wlroots.Pointer.event.Axis) void;
-fn _axisnotify(l: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void { axisnotify(l, event); }
+fn axisnotify(_: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void {
+    // This event is forwarded by the cursor when a pointer emits an axis event,
+    // for example when you move the scroll wheel.
+    idle_notifier.notifyActivity(seat);
+
+    // TODO: allow usage of scroll wheel for mousebindings, it can be implemented
+    // by checking the event's orientation and the delta of the event
+    // Notify the client with pointer focus of the axis event.
+    seat.pointerNotifyAxis(
+        event.time_msec,
+        event.orientation,
+        event.delta,
+        event.delta_discrete,
+        event.source,
+        event.relative_direction,
+    );
+}
+
+fn cursorframe(_: *wl.Listener(*wlroots.Cursor), _: *wlroots.Cursor) void {
+    // This event is forwarded by the cursor when a pointer emits a frame
+    // event. Frame events are sent after regular pointer events to group
+    // multiple events together. For instance, two axis events may happen at the
+    // same time, in which case a frame event won't be sent in between.
+    // Notify the client with pointer focus of the frame event.
+    seat.pointerNotifyFrame();
+}
+
+fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevice) void {
+    // This event is raised by the backend when a new input device becomes
+    // available.
+    switch (device.type) {
+        .keyboard => createkeyboard(device.toKeyboard()),
+        .pointer => createpointer(device.toPointer()),
+        // TODO handle other input device types
+        else => {},
+    }
+
+    // We need to let the wlr_seat know what our capabilities are, which is
+    // communiciated to the client. In dwl we always have a cursor, even if
+    // there are no pointer devices, so we always include that capability.
+    // TODO do we actually require a cursor?
+    seat.setCapabilities(.{
+        .pointer = true,
+        .keyboard = (kb_group.devices.next != &kb_group.devices),
+    });
+}
+
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
@@ -518,18 +571,18 @@ extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
+extern fn createkeyboard(*wlroots.Keyboard) void;
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
 fn _createmon(l: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(l, event); }
 extern fn createnotify(*wl.Listener(*wlroots.XdgToplevel), *wlroots.XdgToplevel) void;
 fn _createnotify(l: *wl.Listener(*wlroots.XdgToplevel), event: *wlroots.XdgToplevel) void { createnotify(l, event); }
+extern fn createpointer(*wlroots.Pointer) void;
 extern fn createpointerconstraint(*wl.Listener(*wlroots.PointerConstraintV1), *wlroots.PointerConstraintV1) void;
 fn _createpointerconstraint(l: *wl.Listener(*wlroots.PointerConstraintV1), event: *wlroots.PointerConstraintV1) void { createpointerconstraint(l, event); }
 extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
-extern fn cursorframe(*wl.Listener(*wlroots.Cursor), *wlroots.Cursor) void;
-fn _cursorframe(l: *wl.Listener(*wlroots.Cursor), event: *wlroots.Cursor) void { cursorframe(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;

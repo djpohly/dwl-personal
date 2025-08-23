@@ -128,7 +128,6 @@ static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
 		struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
-void axisnotify(struct wl_listener *listener, void *data);
 void buttonpress(struct wl_listener *listener, void *data);
 static void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
@@ -140,17 +139,16 @@ static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 void createdecoration(struct wl_listener *listener, void *data);
-static void createkeyboard(struct wlr_keyboard *keyboard);
+void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
 void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
 void createmon(struct wl_listener *listener, void *data);
 void createnotify(struct wl_listener *listener, void *data);
-static void createpointer(struct wlr_pointer *pointer);
+void createpointer(struct wlr_pointer *pointer);
 void createpointerconstraint(struct wl_listener *listener, void *data);
 void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
-void cursorframe(struct wl_listener *listener, void *data);
 static void cursorwarptohint(void);
 static void destroydecoration(struct wl_listener *listener, void *data);
 static void destroydragicon(struct wl_listener *listener, void *data);
@@ -169,7 +167,6 @@ Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 void handlesig(int signo);
 static void incnmaster(const Arg *arg);
-static void inputdevice(struct wl_listener *listener, void *data);
 static int keybinding(uint32_t mods, xkb_keysym_t sym);
 static void keypress(struct wl_listener *listener, void *data);
 static void keypressmod(struct wl_listener *listener, void *data);
@@ -282,13 +279,13 @@ extern Monitor *selmon;
 /* global event handlers */
 extern struct wl_listener cursor_axis;
 extern struct wl_listener cursor_button;
-static struct wl_listener cursor_frame = {.notify = cursorframe};
+extern struct wl_listener cursor_frame;
 extern struct wl_listener cursor_motion;
 extern struct wl_listener cursor_motion_absolute;
 extern struct wl_listener gpu_reset;
 extern struct wl_listener layout_change;
 extern struct wl_listener new_idle_inhibitor;
-static struct wl_listener new_input_device = {.notify = inputdevice};
+extern struct wl_listener new_input_device;
 static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
 static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
 extern struct wl_listener new_pointer_constraint;
@@ -476,21 +473,6 @@ arrangelayers(Monitor *m)
 			return;
 		}
 	}
-}
-
-void
-axisnotify(struct wl_listener *listener, void *data)
-{
-	/* This event is forwarded by the cursor when a pointer emits an axis event,
-	 * for example when you move the scroll wheel. */
-	struct wlr_pointer_axis_event *event = data;
-	wlr_idle_notifier_v1_notify_activity(idle_notifier, seat);
-	/* TODO: allow usage of scroll wheel for mousebindings, it can be implemented
-	 * by checking the event's orientation and the delta of the event */
-	/* Notify the client with pointer focus of the axis event. */
-	wlr_seat_pointer_notify_axis(seat,
-			event->time_msec, event->orientation, event->delta,
-			event->delta_discrete, event->source, event->relative_direction);
 }
 
 void
@@ -1085,17 +1067,6 @@ cursorconstrain(struct wlr_pointer_constraint_v1 *constraint)
 }
 
 void
-cursorframe(struct wl_listener *listener, void *data)
-{
-	/* This event is forwarded by the cursor when a pointer emits a frame
-	 * event. Frame events are sent after regular pointer events to group
-	 * multiple events together. For instance, two axis events may happen at the
-	 * same time, in which case a frame event won't be sent in between. */
-	/* Notify the client with pointer focus of the frame event. */
-	wlr_seat_pointer_notify_frame(seat);
-}
-
-void
 cursorwarptohint(void)
 {
 	Client *c = NULL;
@@ -1409,36 +1380,6 @@ incnmaster(const Arg *arg)
 		return;
 	selmon->nmaster = MAX(selmon->nmaster + arg->i, 0);
 	arrange(selmon);
-}
-
-void
-inputdevice(struct wl_listener *listener, void *data)
-{
-	/* This event is raised by the backend when a new input device becomes
-	 * available. */
-	struct wlr_input_device *device = data;
-	uint32_t caps;
-
-	switch (device->type) {
-	case WLR_INPUT_DEVICE_KEYBOARD:
-		createkeyboard(wlr_keyboard_from_input_device(device));
-		break;
-	case WLR_INPUT_DEVICE_POINTER:
-		createpointer(wlr_pointer_from_input_device(device));
-		break;
-	default:
-		/* TODO handle other input device types */
-		break;
-	}
-
-	/* We need to let the wlr_seat know what our capabilities are, which is
-	 * communiciated to the client. In dwl we always have a cursor, even if
-	 * there are no pointer devices, so we always include that capability. */
-	/* TODO do we actually require a cursor? */
-	caps = WL_SEAT_CAPABILITY_POINTER;
-	if (!wl_list_empty(&kb_group->wlr_group->devices))
-		caps |= WL_SEAT_CAPABILITY_KEYBOARD;
-	wlr_seat_set_capabilities(seat, caps);
 }
 
 int
@@ -2250,13 +2191,6 @@ _setup(void)
 {
 	int i;
 
-	/*
-	 * Configures a seat, which is a single "seat" at which a user sits and
-	 * operates the computer. This conceptually includes up to one keyboard,
-	 * pointer, touch, and drawing tablet device. We also rig up a listener to
-	 * let us know when new input devices are available on the backend.
-	 */
-	wl_signal_add(&backend->events.new_input, &new_input_device);
 	virtual_keyboard_mgr = wlr_virtual_keyboard_manager_v1_create(dpy);
 	wl_signal_add(&virtual_keyboard_mgr->events.new_virtual_keyboard,
 			&new_virtual_keyboard);
