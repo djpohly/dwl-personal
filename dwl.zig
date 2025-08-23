@@ -344,6 +344,21 @@ fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event
     }
 }
 
+fn createidleinhibitor(_: *wl.Listener(*wlroots.IdleInhibitorV1), idle_inhibitor: *wlroots.IdleInhibitorV1) void {
+    idle_inhibitor.events.destroy.add(&struct {
+        var static_listener = listener(destroyidleinhibitor);
+    }.static_listener);
+
+    checkidleinhibitor(null);
+}
+
+fn destroyidleinhibitor(l: *wl.Listener(*wlroots.Surface), surface: *wlroots.Surface) void {
+    // `surface` is the wlr_surface of the idle inhibitor being destroyed,
+    // at this point the idle inhibitor is still in the list of the manager
+    checkidleinhibitor(surface.getRootSurface());
+    l.link.remove();
+}
+
 export fn xytomon(x: f64, y: f64) ?*C.Monitor {
     return if (output_layout.outputAt(x, y)) |o| @alignCast(@ptrCast(o.data)) else null;
 }
@@ -413,7 +428,7 @@ extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 // Signal handlers
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
-export var new_idle_inhibitor = listener(_createidleinhibitor);
+export var new_idle_inhibitor = listener(createidleinhibitor);
 export var new_layer_surface = listener(_createlayersurface);
 export var new_output = listener(_createmon);
 export var new_xdg_popup = listener(_createpopup);
@@ -434,11 +449,10 @@ inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
     return .init(handler);
 }
 
+extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
-extern fn createidleinhibitor(*wl.Listener(*wlroots.IdleInhibitorV1), *wlroots.IdleInhibitorV1) void;
-fn _createidleinhibitor(l: *wl.Listener(*wlroots.IdleInhibitorV1), event: *wlroots.IdleInhibitorV1) void { createidleinhibitor(l, event); }
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
