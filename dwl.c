@@ -264,23 +264,23 @@ extern struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 extern struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
 extern struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
 
-static struct wlr_pointer_constraints_v1 *pointer_constraints;
-static struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
-static struct wlr_pointer_constraint_v1 *active_constraint;
+extern struct wlr_pointer_constraints_v1 *pointer_constraints;
+extern struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
+extern struct wlr_pointer_constraint_v1 *active_constraint;
 
 extern struct wlr_cursor *cursor;
 extern struct wlr_xcursor_manager *cursor_mgr;
 
 extern struct wlr_scene_rect *root_bg;
-static struct wlr_session_lock_manager_v1 *session_lock_mgr;
-static struct wlr_scene_rect *locked_bg;
-static struct wlr_session_lock_v1 *cur_lock;
+extern struct wlr_session_lock_manager_v1 *session_lock_mgr;
+extern struct wlr_scene_rect *locked_bg;
+extern struct wlr_session_lock_v1 *cur_lock;
 
-static struct wlr_seat *seat;
-static KeyboardGroup *kb_group;
+extern struct wlr_seat *seat;
+extern KeyboardGroup *kb_group;
 static unsigned int cursor_mode;
-static Client *grabc;
-static int grabcx, grabcy; /* client-relative */
+extern Client *grabc;
+extern int grabcx, grabcy; /* client-relative */
 
 extern struct wlr_output_layout *output_layout;
 static struct wlr_box sgeom;
@@ -2291,9 +2291,6 @@ _setup(void)
 
 	session_lock_mgr = wlr_session_lock_manager_v1_create(dpy);
 	wl_signal_add(&session_lock_mgr->events.new_lock, &new_session_lock);
-	locked_bg = wlr_scene_rect_create(layers[LyrBlock], sgeom.width, sgeom.height,
-			(float [4]){0.1f, 0.1f, 0.1f, 1.0f});
-	wlr_scene_node_set_enabled(&locked_bg->node, 0);
 
 	/* Use decoration protocols to negotiate server-side decorations */
 	wlr_server_decoration_manager_set_default_mode(

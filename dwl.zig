@@ -94,9 +94,12 @@ fn setup() !void {
         init_layers.appendAssumeCapacity(try scene.tree.createSceneTree());
     }
 
+    locked_bg = try layers[@intFromEnum(Layer.block)].createSceneRect(0, 0, &.{0.1, 0.1, 0.1, 1.0});
+    errdefer locked_bg.node.destroy();
+    locked_bg.node.setEnabled(false);
+
     drag_icon = try scene.tree.createSceneTree();
     errdefer drag_icon.node.destroy();
-
     drag_icon.node.placeBelow(&layers[@intFromEnum(Layer.block)].node);
 
     // Autocreates a renderer, either Pixman, GLES2 or Vulkan for us. The user
@@ -343,33 +346,44 @@ fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
 }
 
 export var activation: *wlroots.XdgActivationV1 = undefined;
+export var active_constraint: ?*wlroots.PointerConstraintV1 = null;
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
 export var clients: wl.list.Head(C.Client, .link) = undefined;
 export var compositor: *wlroots.Compositor = undefined;
+export var cur_lock: ?*wlroots.SessionLockV1 = null;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
-export var cursor_shape_mgr: ?*wlroots.CursorShapeManagerV1 = null;
+export var cursor_shape_mgr: *wlroots.CursorShapeManagerV1 = undefined;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
 export var drw: *wlroots.Renderer = undefined;
 export var event_loop: *wl.EventLoop = undefined;
 export var fstack: wl.list.Head(C.Client, .flink) = undefined;
-export var idle_inhibit_mgr: ?*wlroots.IdleInhibitManagerV1 = null;
-export var idle_notifier: ?*wlroots.IdleNotifierV1 = null;
-export var layer_shell: ?*wlroots.LayerShellV1 = null;
+export var grabc: ?*C.Client = null;
+export var grabcx: c_int = 0;
+export var grabcy: c_int = 0;
+export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
+export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
+export var kb_group: *wlroots.KeyboardGroup = undefined;
+export var layer_shell: *wlroots.LayerShellV1 = undefined;
+export var locked_bg: *wlroots.SceneRect = undefined;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
-export var output_mgr: ?*wlroots.OutputManagerV1 = null;
+export var output_mgr: *wlroots.OutputManagerV1 = undefined;
+export var pointer_constraints: *wlroots.PointerConstraintsV1 = undefined;
 export var power_mgr: *wlroots.OutputPowerManagerV1 = undefined;
+export var relative_pointer_mgr: *wlroots.RelativePointerManagerV1 = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
+export var seat: *wlroots.Seat = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
-export var virtual_keyboard_mgr: ?*wlroots.VirtualKeyboardManagerV1 = null;
-export var virtual_pointer_mgr: ?*wlroots.VirtualPointerManagerV1 = null;
-export var xdg_decoration_mgr: ?*wlroots.XdgDecorationManagerV1 = null;
-export var xdg_shell: ?*wlroots.XdgShell = null;
+export var session_lock_mgr: wlroots.SessionLockManagerV1 = undefined;
+export var virtual_keyboard_mgr: *wlroots.VirtualKeyboardManagerV1 = undefined;
+export var virtual_pointer_mgr: *wlroots.VirtualPointerManagerV1 = undefined;
+export var xdg_decoration_mgr: *wlroots.XdgDecorationManagerV1 = undefined;
+export var xdg_shell: *wlroots.XdgShell = undefined;
 
 // TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
