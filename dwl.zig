@@ -198,11 +198,19 @@ const MonsIterator = struct {
     }
 };
 
-fn gpureset(_: *wl.Listener(void)) !void {
-    const new_drw: *wlroots.Renderer = try .autocreate(backend);
+fn gpureset(_: *wl.Listener(void)) void {
+    const new_drw = wlroots.Renderer.autocreate(backend) catch |err| {
+        std.log.err("Error creating Renderer: {s}", .{@errorName(err)});
+        std.debug.dumpCurrentStackTrace(null);
+        return;
+    };
     errdefer new_drw.destroy();
 
-    const new_alloc: *wlroots.Allocator = try .autocreate(backend, drw);
+    const new_alloc = wlroots.Allocator.autocreate(backend, drw) catch |err| {
+        std.log.err("Error creating Renderer: {s}", .{@errorName(err)});
+        std.debug.dumpCurrentStackTrace(null);
+        return;
+    };
     errdefer new_alloc.destroy();
 
     // Remove from old drw, add to new
@@ -222,39 +230,6 @@ fn gpureset(_: *wl.Listener(void)) !void {
 
     alloc.destroy();
     drw.destroy();
-}
-
-fn Infallible(Function: anytype) type {
-    const paramInfo = @typeInfo(Function).@"fn".params;
-    switch (paramInfo.len) {
-        1 => return wl.Listener(void),
-        2 => return wl.Listener(paramInfo[1].type.?),
-        else => @panic("infallibleListener only supports listener functions"),
-    }
-}
-
-fn infallibleListener(f: anytype) Infallible(@TypeOf(f)) {
-    const params = @typeInfo(@TypeOf(f)).@"fn".params;
-    const func = switch (params.len) {
-        1 => struct {
-            fn func(listener: *wl.Listener(void)) void {
-                f(listener) catch |err| {
-                    std.log.err("Error in listener: {s}", .{@errorName(err)});
-                    std.debug.dumpCurrentStackTrace(null);
-                };
-            }
-        }.func,
-        2 => struct {
-            fn func(listener: params[0].type.?, data: params[1].type.?) void {
-                f(listener, data) catch |err| {
-                    std.log.err("Error in listener: {s}", .{@errorName(err)});
-                    std.debug.dumpCurrentStackTrace(null);
-                };
-            }
-        }.func,
-        else => @panic("infallible() only supports Listener functions"),
-    };
-    return .init(func);
 }
 
 fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
@@ -400,7 +375,7 @@ export var xdg_shell: ?*wlroots.XdgShell = null;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
-export var gpu_reset = infallibleListener(gpureset);
+export var gpu_reset: wl.Listener(void) = .init(gpureset);
 export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
 export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
