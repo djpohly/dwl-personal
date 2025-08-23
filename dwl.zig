@@ -27,8 +27,6 @@ const Layer = enum {
 };
 
 pub fn main() !void {
-    var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
-    defer arena.deinit();
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
