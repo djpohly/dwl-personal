@@ -140,10 +140,10 @@ static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 static void createdecoration(struct wl_listener *listener, void *data);
-static void createidleinhibitor(struct wl_listener *listener, void *data);
+void createidleinhibitor(struct wl_listener *listener, void *data);
 static void createkeyboard(struct wlr_keyboard *keyboard);
 static KeyboardGroup *createkeyboardgroup(void);
-static void createlayersurface(struct wl_listener *listener, void *data);
+void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
 void createmon(struct wl_listener *listener, void *data);
 void createnotify(struct wl_listener *listener, void *data);
@@ -295,7 +295,7 @@ static struct wl_listener cursor_motion = {.notify = motionrelative};
 static struct wl_listener cursor_motion_absolute = {.notify = motionabsolute};
 extern struct wl_listener gpu_reset;
 extern struct wl_listener layout_change;
-static struct wl_listener new_idle_inhibitor = {.notify = createidleinhibitor};
+extern struct wl_listener new_idle_inhibitor;
 static struct wl_listener new_input_device = {.notify = inputdevice};
 static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
 static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
@@ -304,7 +304,7 @@ extern struct wl_listener new_output;
 extern struct wl_listener new_xdg_toplevel;
 extern struct wl_listener new_xdg_popup;
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
-static struct wl_listener new_layer_surface = {.notify = createlayersurface};
+extern struct wl_listener new_layer_surface;
 static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
 static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
 extern struct wl_listener output_power_mgr_set_mode;
@@ -2276,14 +2276,6 @@ void
 _setup(void)
 {
 	int i;
-
-	layer_shell = wlr_layer_shell_v1_create(dpy, 3);
-	wl_signal_add(&layer_shell->events.new_surface, &new_layer_surface);
-
-	idle_notifier = wlr_idle_notifier_v1_create(dpy);
-
-	idle_inhibit_mgr = wlr_idle_inhibit_v1_create(dpy);
-	wl_signal_add(&idle_inhibit_mgr->events.new_inhibitor, &new_idle_inhibitor);
 
 	session_lock_mgr = wlr_session_lock_manager_v1_create(dpy);
 	wl_signal_add(&session_lock_mgr->events.new_lock, &new_session_lock);

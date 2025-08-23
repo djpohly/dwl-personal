@@ -188,7 +188,17 @@ fn setup() !void {
 
     xdg_shell = try .create(dpy, 6);
     xdg_shell.events.new_toplevel.add(&new_xdg_toplevel);
+    errdefer new_xdg_toplevel.link.remove();
     xdg_shell.events.new_popup.add(&new_xdg_popup);
+    errdefer new_xdg_popup.link.remove();
+
+    layer_shell = try .create(dpy, 3);
+    layer_shell.events.new_surface.add(&new_layer_surface);
+    errdefer new_layer_surface.link.remove();
+
+    idle_notifier = try .create(dpy);
+    idle_inhibit_mgr = try .create(dpy);
+    idle_inhibit_mgr.events.new_inhibitor.add(&new_idle_inhibitor);
 
     _setup();
 }
@@ -403,11 +413,13 @@ extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 // Signal handlers
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
+export var new_idle_inhibitor = listener(_createidleinhibitor);
+export var new_layer_surface = listener(_createlayersurface);
 export var new_output = listener(_createmon);
 export var new_xdg_popup = listener(_createpopup);
 export var new_xdg_toplevel = listener(_createnotify);
-export var request_activate = listener(urgent);
 export var output_power_mgr_set_mode = listener(powermgrsetmode);
+export var request_activate = listener(urgent);
 
 fn WlListener(comptime Fn: type) type {
     const params = @typeInfo(Fn).@"fn".params;
@@ -425,6 +437,10 @@ inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
+extern fn createidleinhibitor(*wl.Listener(*wlroots.IdleInhibitorV1), *wlroots.IdleInhibitorV1) void;
+fn _createidleinhibitor(l: *wl.Listener(*wlroots.IdleInhibitorV1), event: *wlroots.IdleInhibitorV1) void { createidleinhibitor(l, event); }
+extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
+fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
 fn _createmon(l: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(l, event); }
 extern fn createnotify(*wl.Listener(*wlroots.XdgToplevel), *wlroots.XdgToplevel) void;
