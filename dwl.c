@@ -140,7 +140,7 @@ static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 void createdecoration(struct wl_listener *listener, void *data);
 void createkeyboard(struct wlr_keyboard *keyboard);
-static KeyboardGroup *createkeyboardgroup(void);
+KeyboardGroup *createkeyboardgroup(void);
 void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
 void createmon(struct wl_listener *listener, void *data);
@@ -158,7 +158,7 @@ static void destroylocksurface(struct wl_listener *listener, void *data);
 static void destroynotify(struct wl_listener *listener, void *data);
 static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroysessionlock(struct wl_listener *listener, void *data);
-static void destroykeyboardgroup(struct wl_listener *listener, void *data);
+void destroykeyboardgroup(struct wl_listener *listener, void *data);
 static Monitor *dirtomon(enum wlr_direction dir);
 static void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
@@ -195,7 +195,6 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
-static void setcursor(struct wl_listener *listener, void *data);
 void setcursorshape(struct wl_listener *listener, void *data);
 static void setfloating(Client *c, int floating);
 static void setfullscreen(Client *c, int fullscreen);
@@ -220,8 +219,6 @@ static void unmapnotify(struct wl_listener *listener, void *data);
 void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void view(const Arg *arg);
-static void virtualkeyboard(struct wl_listener *listener, void *data);
-static void virtualpointer(struct wl_listener *listener, void *data);
 static void warpcursor(void);
 extern Monitor *xytomon(double x, double y);
 static void xytonode(double x, double y, struct wlr_surface **psurface,
@@ -267,7 +264,7 @@ extern struct wlr_session_lock_v1 *cur_lock;
 
 extern struct wlr_seat *seat;
 extern KeyboardGroup *kb_group;
-static unsigned int cursor_mode;
+extern unsigned int cursor_mode;
 extern Client *grabc;
 extern int grabcx, grabcy; /* client-relative */
 
@@ -286,8 +283,8 @@ extern struct wl_listener gpu_reset;
 extern struct wl_listener layout_change;
 extern struct wl_listener new_idle_inhibitor;
 extern struct wl_listener new_input_device;
-static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
-static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
+extern struct wl_listener new_virtual_keyboard;
+extern struct wl_listener new_virtual_pointer;
 extern struct wl_listener new_pointer_constraint;
 extern struct wl_listener new_output;
 extern struct wl_listener new_xdg_toplevel;
@@ -298,9 +295,9 @@ static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
 static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
 extern struct wl_listener output_power_mgr_set_mode;
 extern struct wl_listener request_activate;
-static struct wl_listener request_cursor = {.notify = setcursor};
+extern struct wl_listener request_cursor;
 static struct wl_listener request_set_psel = {.notify = setpsel};
-static struct wl_listener request_set_sel = {.notify = setsel};
+extern struct wl_listener request_set_sel;
 extern struct wl_listener request_set_cursor_shape;
 static struct wl_listener request_start_drag = {.notify = requeststartdrag};
 static struct wl_listener start_drag = {.notify = startdrag};
@@ -2041,26 +2038,6 @@ resize(Client *c, struct wlr_box geo, int interact)
 }
 
 void
-setcursor(struct wl_listener *listener, void *data)
-{
-	/* This event is raised by the seat when a client provides a cursor image */
-	struct wlr_seat_pointer_request_set_cursor_event *event = data;
-	/* If we're "grabbing" the cursor, don't use the client's image, we will
-	 * restore it after "grabbing" sending a leave event, followed by a enter
-	 * event, which will result in the client requesting set the cursor surface */
-	if (cursor_mode != CurNormal && cursor_mode != CurPressed)
-		return;
-	/* This can be sent by any client, so we check to make sure this one
-	 * actually has pointer focus first. If so, we can tell the cursor to
-	 * use the provided surface as the cursor image. It will set the
-	 * hardware cursor on the output that it's currently on and continue to
-	 * do so as the cursor moves between outputs. */
-	if (event->seat_client == seat->pointer_state.focused_client)
-		wlr_cursor_set_surface(cursor, event->surface,
-				event->hotspot_x, event->hotspot_y);
-}
-
-void
 setcursorshape(struct wl_listener *listener, void *data)
 {
 	struct wlr_cursor_shape_manager_v1_request_set_shape_event *event = data;
@@ -2191,16 +2168,6 @@ _setup(void)
 {
 	int i;
 
-	virtual_keyboard_mgr = wlr_virtual_keyboard_manager_v1_create(dpy);
-	wl_signal_add(&virtual_keyboard_mgr->events.new_virtual_keyboard,
-			&new_virtual_keyboard);
-	virtual_pointer_mgr = wlr_virtual_pointer_manager_v1_create(dpy);
-    wl_signal_add(&virtual_pointer_mgr->events.new_virtual_pointer,
-            &new_virtual_pointer);
-
-	seat = wlr_seat_create(dpy, "seat0");
-	wl_signal_add(&seat->events.request_set_cursor, &request_cursor);
-	wl_signal_add(&seat->events.request_set_selection, &request_set_sel);
 	wl_signal_add(&seat->events.request_set_primary_selection, &request_set_psel);
 	wl_signal_add(&seat->events.request_start_drag, &request_start_drag);
 	wl_signal_add(&seat->events.start_drag, &start_drag);
@@ -2527,20 +2494,6 @@ view(const Arg *arg)
 	focusclient(focustop(selmon), 1);
 	arrange(selmon);
 	printstatus();
-}
-
-void
-virtualkeyboard(struct wl_listener *listener, void *data)
-{
-	struct wlr_virtual_keyboard_v1 *kb = data;
-	/* virtual keyboards shouldn't share keyboard group */
-	KeyboardGroup *group = createkeyboardgroup();
-	/* Set the keymap to match the group keymap */
-	wlr_keyboard_set_keymap(&kb->keyboard, group->wlr_group->keyboard.keymap);
-	LISTEN(&kb->keyboard.base.events.destroy, &group->destroy, destroykeyboardgroup);
-
-	/* Add the new keyboard to the group */
-	wlr_keyboard_group_add_keyboard(group->wlr_group, &kb->keyboard);
 }
 
 void

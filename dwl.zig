@@ -26,6 +26,13 @@ const Layer = enum {
     block,
 };
 
+const CursorMode = enum(c_uint) {
+    normal,
+    pressed,
+    move,
+    resize,
+};
+
 pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
@@ -257,7 +264,36 @@ fn setup() !void {
     backend.events.new_input.add(&new_input_device);
     errdefer new_input_device.link.remove();
 
+    // Setup for virtual input devices
+    virtual_keyboard_mgr = try .create(dpy);
+    virtual_keyboard_mgr.events.new_virtual_keyboard.add(&new_virtual_keyboard);
+    errdefer new_virtual_keyboard.link.remove();
+    virtual_pointer_mgr = try .create(dpy);
+    virtual_pointer_mgr.events.new_virtual_pointer.add(&new_virtual_pointer);
+    errdefer new_virtual_pointer.link.remove();
+
+    seat = try .create(dpy, "seat0");
+    seat.events.request_set_cursor.add(&request_cursor);
+    errdefer request_cursor.link.remove();
+    seat.events.request_set_selection.add(&request_set_sel);
+    errdefer request_set_sel.link.remove();
+
     _setup();
+}
+
+fn setcursor(_: *wl.Listener(*wlroots.Seat.event.RequestSetCursor), event: *wlroots.Seat.event.RequestSetCursor) void {
+    // This event is raised by the seat when a client provides a cursor image.
+    // If we're "grabbing" the cursor, don't use the client's image, we will
+    // restore it after "grabbing" sending a leave event, followed by a enter
+    // event, which will result in the client requesting set the cursor surface
+    switch (@as(CursorMode, @enumFromInt(cursor_mode))) {
+        .normal, .pressed => {
+            if (event.seat_client == seat.pointer_state.focused_client) {
+                cursor.setSurface(event.surface, event.hotspot_x, event.hotspot_y);
+            }
+        },
+        .move, .resize => {},
+    }
 }
 
 const MonsIterator = struct {
@@ -277,6 +313,34 @@ const MonsIterator = struct {
         return @fieldParentPtr("link", cast_link);
     }
 };
+
+fn virtualkeyboard(_: *wl.Listener(*wlroots.VirtualKeyboardV1), kb: *wlroots.VirtualKeyboardV1) void {
+    // virtual keyboards shouldn't share keyboard group
+    const group = createkeyboardgroup();
+    // Set the keymap to match the group keymap
+    const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(group.wlr_group));
+    _ = kb.keyboard.setKeymap(wlr_group.keyboard.keymap);
+
+    const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&group.destroy);
+    destroy.* = .init(_destroykeyboardgroup);
+    kb.keyboard.base.events.destroy.add(destroy);
+    errdefer destroy.link.remove();
+
+    // Add the new keyboard to the group
+    _ = wlr_group.addKeyboard(&kb.keyboard);
+}
+
+extern fn destroykeyboardgroup(listener: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevice) void;
+fn _destroykeyboardgroup(l: *wl.Listener(*wlroots.InputDevice), event: *wlroots.InputDevice) void { destroykeyboardgroup(l, event); }
+
+fn virtualpointer(_: *wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPointer), event: *wlroots.VirtualPointerManagerV1.event.NewPointer) void {
+    const device = &event.new_pointer.pointer.base;
+
+    cursor.attachInputDevice(device);
+    if (event.suggested_output) |output| {
+        cursor.mapInputToOutput(device, output);
+    }
+}
 
 fn gpureset(_: *wl.Listener(void)) void {
     const new_drw = wlroots.Renderer.autocreate(backend) catch |err| {
@@ -403,7 +467,7 @@ fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event
 
 fn createidleinhibitor(_: *wl.Listener(*wlroots.IdleInhibitorV1), idle_inhibitor: *wlroots.IdleInhibitorV1) void {
     idle_inhibitor.events.destroy.add(&struct {
-        var static_listener = listener(destroyidleinhibitor);
+        var static_listener: wl.Listener(*wlroots.Surface) = .init(destroyidleinhibitor);
     }.static_listener);
 
     checkidleinhibitor(null);
@@ -448,6 +512,7 @@ var compositor: *wlroots.Compositor = undefined;
 export var cur_lock: ?*wlroots.SessionLockV1 = null;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
+export var cursor_mode: c_uint = 0;
 var cursor_shape_mgr: *wlroots.CursorShapeManagerV1 = undefined;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
@@ -483,37 +548,32 @@ var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
-export var cursor_axis = listener(axisnotify);
-export var cursor_button = listener(_buttonpress);
-export var cursor_frame = listener(cursorframe);
-export var cursor_motion = listener(_motionrelative);
-export var cursor_motion_absolute = listener(_motionabsolute);
-export var gpu_reset = listener(gpureset);
-export var layout_change = listener(_updatemons);
-export var new_idle_inhibitor = listener(createidleinhibitor);
-export var new_input_device = listener(inputdevice);
-export var new_layer_surface = listener(_createlayersurface);
-export var new_output = listener(_createmon);
-export var new_pointer_constraint = listener(_createpointerconstraint);
-export var new_session_lock = listener(_locksession);
-export var new_xdg_decoration = listener(_createdecoration);
-export var new_xdg_popup = listener(_createpopup);
-export var new_xdg_toplevel = listener(_createnotify);
-export var output_power_mgr_set_mode = listener(powermgrsetmode);
-export var request_activate = listener(urgent);
-export var request_set_cursor_shape = listener(_setcursorshape);
+export var cursor_axis: wl.Listener(*wlroots.Pointer.event.Axis) = .init(axisnotify);
+export var cursor_button: wl.Listener(*wlroots.Pointer.event.Button) = .init(_buttonpress);
+export var cursor_frame: wl.Listener(*wlroots.Cursor) = .init(cursorframe);
+export var cursor_motion: wl.Listener(*wlroots.Pointer.event.Motion) = .init(_motionrelative);
+export var cursor_motion_absolute: wl.Listener(*wlroots.Pointer.event.MotionAbsolute) = .init(_motionabsolute);
+export var gpu_reset: wl.Listener(void) = .init(gpureset);
+export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
+export var new_idle_inhibitor: wl.Listener(*wlroots.IdleInhibitorV1) = .init(createidleinhibitor);
+export var new_input_device: wl.Listener(*wlroots.InputDevice) = .init(inputdevice);
+export var new_layer_surface: wl.Listener(*wlroots.LayerSurfaceV1) = .init(_createlayersurface);
+export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
+export var new_pointer_constraint: wl.Listener(*wlroots.PointerConstraintV1) = .init(_createpointerconstraint);
+export var new_session_lock: wl.Listener(*wlroots.SessionLockV1) = .init(_locksession);
+export var new_virtual_keyboard: wl.Listener(*wlroots.VirtualKeyboardV1) = .init(virtualkeyboard);
+export var new_virtual_pointer: wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPointer) = .init(virtualpointer);
+export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(_createdecoration);
+export var new_xdg_popup: wl.Listener(*wlroots.XdgPopup) = .init(_createpopup);
+export var new_xdg_toplevel: wl.Listener(*wlroots.XdgToplevel) = .init(_createnotify);
+export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
+export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
+export var request_cursor: wl.Listener(*wlroots.Seat.event.RequestSetCursor) = .init(setcursor);
+export var request_set_cursor_shape: wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape) = .init(_setcursorshape);
+export var request_set_sel: wl.Listener(*wlroots.Seat.event.RequestSetSelection) = .init(setsel);
 
-fn WlListener(comptime Fn: type) type {
-    const params = @typeInfo(Fn).@"fn".params;
-    return switch (params.len) {
-        1 => wl.Listener(void),
-        2 => wl.Listener(params[1].type.?),
-        else => |n| std.debug.panic("cannot use {d}-parameter function as listener", .{n}),
-    };
-}
-
-inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
-    return .init(handler);
+fn setsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetSelection), event: *wlroots.Seat.event.RequestSetSelection) void {
+    seat.setSelection(event.source, event.serial);
 }
 
 fn axisnotify(_: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void {
@@ -572,6 +632,7 @@ extern fn client_surface(c: *C.Client) *wlroots.Surface;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createkeyboard(*wlroots.Keyboard) void;
+extern fn createkeyboardgroup() *C.KeyboardGroup;
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
