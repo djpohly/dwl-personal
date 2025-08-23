@@ -146,10 +146,10 @@ static KeyboardGroup *createkeyboardgroup(void);
 static void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
 void createmon(struct wl_listener *listener, void *data);
-static void createnotify(struct wl_listener *listener, void *data);
+void createnotify(struct wl_listener *listener, void *data);
 static void createpointer(struct wlr_pointer *pointer);
 static void createpointerconstraint(struct wl_listener *listener, void *data);
-static void createpopup(struct wl_listener *listener, void *data);
+void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
 static void cursorframe(struct wl_listener *listener, void *data);
 static void cursorwarptohint(void);
@@ -301,8 +301,8 @@ static struct wl_listener new_virtual_keyboard = {.notify = virtualkeyboard};
 static struct wl_listener new_virtual_pointer = {.notify = virtualpointer};
 static struct wl_listener new_pointer_constraint = {.notify = createpointerconstraint};
 extern struct wl_listener new_output;
-static struct wl_listener new_xdg_toplevel = {.notify = createnotify};
-static struct wl_listener new_xdg_popup = {.notify = createpopup};
+extern struct wl_listener new_xdg_toplevel;
+extern struct wl_listener new_xdg_popup;
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
 static struct wl_listener new_layer_surface = {.notify = createlayersurface};
 static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
@@ -2276,10 +2276,6 @@ void
 _setup(void)
 {
 	int i;
-
-	xdg_shell = wlr_xdg_shell_create(dpy, 6);
-	wl_signal_add(&xdg_shell->events.new_toplevel, &new_xdg_toplevel);
-	wl_signal_add(&xdg_shell->events.new_popup, &new_xdg_popup);
 
 	layer_shell = wlr_layer_shell_v1_create(dpy, 3);
 	wl_signal_add(&layer_shell->events.new_surface, &new_layer_surface);

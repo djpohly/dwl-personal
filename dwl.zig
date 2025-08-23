@@ -171,14 +171,19 @@ fn setup() !void {
 
     _ = try wlroots.XdgOutputManagerV1.create(dpy, output_layout);
 
-    // Configure a listener to be notified when new outputs are available on the
-    // backend.
-    mons.init();
-    backend.events.new_output.add(&new_output);
-
-    // Set up our client lists, the xdg-shell and the layer-shell
+    // Set up our client lists, the xdg-shell and the
+    // layer-shell, as well as the monitor list
     clients.init();
     fstack.init();
+    mons.init();
+
+    // Configure a listener to be notified when new outputs are available on the
+    // backend.
+    backend.events.new_output.add(&new_output);
+
+    xdg_shell = try .create(dpy, 6);
+    xdg_shell.events.new_toplevel.add(&new_xdg_toplevel);
+    xdg_shell.events.new_popup.add(&new_xdg_popup);
 
     _setup();
 }
@@ -389,22 +394,41 @@ export var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
-export var gpu_reset: wl.Listener(void) = .init(gpureset);
-export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
-export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
-export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
-export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
+export var gpu_reset = listener(gpureset);
+export var layout_change = listener(_updatemons);
+export var new_output = listener(_createmon);
+export var new_xdg_popup = listener(_createpopup);
+export var new_xdg_toplevel = listener(_createnotify);
+export var request_activate = listener(urgent);
+export var output_power_mgr_set_mode = listener(powermgrsetmode);
+
+fn WlListener(comptime Fn: type) type {
+    const params = @typeInfo(Fn).@"fn".params;
+    return switch (params.len) {
+        1 => wl.Listener(void),
+        2 => wl.Listener(params[1].type.?),
+        else => |n| std.debug.panic("cannot use {d}-parameter function as listener", .{n}),
+    };
+}
+
+inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
+    return .init(handler);
+}
 
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
-fn _createmon(listener: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(listener, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
+fn _createmon(l: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(l, event); }
+extern fn createnotify(*wl.Listener(*wlroots.XdgToplevel), *wlroots.XdgToplevel) void;
+fn _createnotify(l: *wl.Listener(*wlroots.XdgToplevel), event: *wlroots.XdgToplevel) void { createnotify(l, event); }
+extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
+fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn printstatus() void;
 extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
-fn _updatemons(listener: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(listener, event); }
+fn _updatemons(l: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(l, event); }
 extern fn _setup() void;
