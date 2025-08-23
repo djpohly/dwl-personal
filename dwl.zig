@@ -110,6 +110,7 @@ fn setup() !void {
     errdefer drw.destroy();
 
     drw.events.lost.add(&gpu_reset);
+    errdefer gpu_reset.link.remove();
 
     // Create shm, drm and linux_dmabuf interfaces by ourselves.
     // The simplest way is to call:
@@ -158,16 +159,19 @@ fn setup() !void {
     // Initializes the interface used to implement urgency hints
     activation = try .create(dpy);
     activation.events.request_activate.add(&request_activate);
+    errdefer request_activate.link.remove();
 
     wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
     power_mgr = try .create(dpy);
     power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
+    errdefer output_power_mgr_set_mode.link.remove();
 
     // Creates an output layout, which is a wlroots utility for working with an
     // arrangement of screens in a physical layout.
     output_layout = try .create(dpy);
     output_layout.events.change.add(&layout_change);
+    errdefer layout_change.link.remove();
 
     _ = try wlroots.XdgOutputManagerV1.create(dpy, output_layout);
 
@@ -180,6 +184,7 @@ fn setup() !void {
     // Configure a listener to be notified when new outputs are available on the
     // backend.
     backend.events.new_output.add(&new_output);
+    errdefer new_output.link.remove();
 
     xdg_shell = try .create(dpy, 6);
     xdg_shell.events.new_toplevel.add(&new_xdg_toplevel);
