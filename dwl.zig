@@ -277,6 +277,12 @@ fn setup() !void {
     errdefer request_cursor.link.remove();
     seat.events.request_set_selection.add(&request_set_sel);
     errdefer request_set_sel.link.remove();
+    seat.events.request_set_primary_selection.add(&request_set_psel);
+    errdefer request_set_psel.link.remove();
+    seat.events.request_start_drag.add(&request_start_drag);
+    errdefer request_start_drag.link.remove();
+    seat.events.start_drag.add(&start_drag);
+    errdefer start_drag.link.remove();
 
     _setup();
 }
@@ -570,10 +576,52 @@ export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
 export var request_cursor: wl.Listener(*wlroots.Seat.event.RequestSetCursor) = .init(setcursor);
 export var request_set_cursor_shape: wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape) = .init(_setcursorshape);
+export var request_set_psel: wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection) = .init(setpsel);
 export var request_set_sel: wl.Listener(*wlroots.Seat.event.RequestSetSelection) = .init(setsel);
+export var request_start_drag: wl.Listener(*wlroots.Seat.event.RequestStartDrag) = .init(requeststartdrag);
+export var start_drag: wl.Listener(*wlroots.Drag) = .init(startdrag);
+
+fn requeststartdrag(_: *wl.Listener(*wlroots.Seat.event.RequestStartDrag), event: *wlroots.Seat.event.RequestStartDrag) void {
+    if (seat.validatePointerGrabSerial(event.origin, event.serial)) {
+        seat.startPointerDrag(event.drag, event.serial);
+    } else {
+        event.drag.source.?.destroy();
+    }
+}
+
+fn startdrag(_: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) void {
+    if (drag.icon) |icon| {
+        icon.data = &(drag_icon.createSceneDragIcon(icon) catch |err| {
+            std.log.err("Error creating drag icon: {s}", .{@errorName(err)});
+            std.debug.dumpCurrentStackTrace(null);
+            return;
+        }).node;
+        icon.events.destroy.add(&destroy_drag_icon);
+    }
+}
+
+var destroy_drag_icon: wl.Listener(*wlroots.Drag.Icon) = .init(destroydragicon);
+fn destroydragicon(listener: *wl.Listener(*wlroots.Drag.Icon), _: *wlroots.Drag.Icon) void {
+    // Focus enter isn't sent during drag, so refocus the focused node.
+    focusclient(focustop(selmon), 1);
+    motionnotify(0, null, 0, 0, 0, 0);
+    listener.link.remove();
+    std.c.free(listener);
+}
+extern fn motionnotify(time: u32, device: ?*wlroots.InputDevice, sx: f64, sy: f64, sx_unaccel: f64, sy_unaccel: f64) void;
 
 fn setsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetSelection), event: *wlroots.Seat.event.RequestSetSelection) void {
+    // This event is raised by the seat when a client wants to set the selection,
+    // usually when the user copies something. wlroots allows compositors to
+    // ignore such requests if they so choose, but in dwl we always honor them
     seat.setSelection(event.source, event.serial);
+}
+
+fn setpsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection), event: *wlroots.Seat.event.RequestSetPrimarySelection) void {
+    // This event is raised by the seat when a client wants to set the selection,
+    // usually when the user copies something. wlroots allows compositors to
+    // ignore such requests if they so choose, but in dwl we always honor them
+    seat.setPrimarySelection(event.source, event.serial);
 }
 
 fn axisnotify(_: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void {
@@ -645,6 +693,7 @@ fn _createpointerconstraint(l: *wl.Listener(*wlroots.PointerConstraintV1), event
 extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
+extern fn focusclient(c: ?*C.Client, lift: c_int) void;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;

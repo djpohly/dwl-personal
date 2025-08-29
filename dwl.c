@@ -151,7 +151,6 @@ void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
 static void cursorwarptohint(void);
 static void destroydecoration(struct wl_listener *listener, void *data);
-static void destroydragicon(struct wl_listener *listener, void *data);
 static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
 static void destroylock(SessionLock *lock, int unlocked);
 static void destroylocksurface(struct wl_listener *listener, void *data);
@@ -160,7 +159,7 @@ static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroysessionlock(struct wl_listener *listener, void *data);
 void destroykeyboardgroup(struct wl_listener *listener, void *data);
 static Monitor *dirtomon(enum wlr_direction dir);
-static void focusclient(Client *c, int lift);
+void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
 Client *focustop(Monitor *m);
@@ -178,7 +177,7 @@ static void maximizenotify(struct wl_listener *listener, void *data);
 static void monocle(Monitor *m);
 static void movestack(const Arg *arg);
 void motionabsolute(struct wl_listener *listener, void *data);
-static void motionnotify(uint32_t time, struct wlr_input_device *device, double sx,
+void motionnotify(uint32_t time, struct wlr_input_device *device, double sx,
 		double sy, double sx_unaccel, double sy_unaccel);
 void motionrelative(struct wl_listener *listener, void *data);
 static void moveresize(const Arg *arg);
@@ -192,7 +191,6 @@ static void powermgrsetmode(struct wl_listener *listener, void *data);
 static void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
-static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
 void setcursorshape(struct wl_listener *listener, void *data);
@@ -201,11 +199,8 @@ static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setmon(Client *c, Monitor *m, uint32_t newtags);
-static void setpsel(struct wl_listener *listener, void *data);
-static void setsel(struct wl_listener *listener, void *data);
 void setup(void);
 static void spawn(const Arg *arg);
-static void startdrag(struct wl_listener *listener, void *data);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
@@ -296,12 +291,12 @@ static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
 extern struct wl_listener output_power_mgr_set_mode;
 extern struct wl_listener request_activate;
 extern struct wl_listener request_cursor;
-static struct wl_listener request_set_psel = {.notify = setpsel};
+extern struct wl_listener request_set_psel;
 extern struct wl_listener request_set_sel;
 extern struct wl_listener request_set_cursor_shape;
-static struct wl_listener request_start_drag = {.notify = requeststartdrag};
-static struct wl_listener start_drag = {.notify = startdrag};
-static struct wl_listener new_session_lock = {.notify = locksession};
+extern struct wl_listener request_start_drag;
+extern struct wl_listener start_drag;
+extern struct wl_listener new_session_lock;
 
 #ifdef XWAYLAND
 static void activatex11(struct wl_listener *listener, void *data);
@@ -1084,16 +1079,6 @@ destroydecoration(struct wl_listener *listener, void *data)
 
 	wl_list_remove(&c->destroy_decoration.link);
 	wl_list_remove(&c->set_decoration_mode.link);
-}
-
-void
-destroydragicon(struct wl_listener *listener, void *data)
-{
-	/* Focus enter isn't sent during drag, so refocus the focused node. */
-	focusclient(focustop(selmon), 1);
-	motionnotify(0, NULL, 0, 0, 0, 0);
-	wl_list_remove(&listener->link);
-	free(listener);
 }
 
 void
@@ -1985,18 +1970,6 @@ requestdecorationmode(struct wl_listener *listener, void *data)
 }
 
 void
-requeststartdrag(struct wl_listener *listener, void *data)
-{
-	struct wlr_seat_request_start_drag_event *event = data;
-
-	if (wlr_seat_validate_pointer_grab_serial(seat, event->origin,
-			event->serial))
-		wlr_seat_start_pointer_drag(seat, event->drag, event->serial);
-	else
-		wlr_data_source_destroy(event->drag->source);
-}
-
-void
 requestmonstate(struct wl_listener *listener, void *data)
 {
 	struct wlr_output_event_request_state *event = data;
@@ -2142,35 +2115,9 @@ setmon(Client *c, Monitor *m, uint32_t newtags)
 }
 
 void
-setpsel(struct wl_listener *listener, void *data)
-{
-	/* This event is raised by the seat when a client wants to set the selection,
-	 * usually when the user copies something. wlroots allows compositors to
-	 * ignore such requests if they so choose, but in dwl we always honor them
-	 */
-	struct wlr_seat_request_set_primary_selection_event *event = data;
-	wlr_seat_set_primary_selection(seat, event->source, event->serial);
-}
-
-void
-setsel(struct wl_listener *listener, void *data)
-{
-	/* This event is raised by the seat when a client wants to set the selection,
-	 * usually when the user copies something. wlroots allows compositors to
-	 * ignore such requests if they so choose, but in dwl we always honor them
-	 */
-	struct wlr_seat_request_set_selection_event *event = data;
-	wlr_seat_set_selection(seat, event->source, event->serial);
-}
-
-void
 _setup(void)
 {
 	int i;
-
-	wl_signal_add(&seat->events.request_set_primary_selection, &request_set_psel);
-	wl_signal_add(&seat->events.request_start_drag, &request_start_drag);
-	wl_signal_add(&seat->events.start_drag, &start_drag);
 
 	kb_group = createkeyboardgroup();
 	wl_list_init(&kb_group->destroy.link);
@@ -2208,17 +2155,6 @@ spawn(const Arg *arg)
 		execvp(((char **)arg->v)[0], (char **)arg->v);
 		die("dwl: execvp %s failed:", ((char **)arg->v)[0]);
 	}
-}
-
-void
-startdrag(struct wl_listener *listener, void *data)
-{
-	struct wlr_drag *drag = data;
-	if (!drag->icon)
-		return;
-
-	drag->icon->data = &wlr_scene_drag_icon_create(drag_icon, drag->icon)->node;
-	LISTEN_STATIC(&drag->icon->events.destroy, destroydragicon);
 }
 
 void
