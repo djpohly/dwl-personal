@@ -133,7 +133,7 @@ static void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
 void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
-static void cleanuplisteners(void);
+void cleanuplisteners(void);
 static void closemon(Monitor *m);
 static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
@@ -598,43 +598,6 @@ cleanupmon(struct wl_listener *listener, void *data)
 	closemon(m);
 	wlr_scene_node_destroy(&m->fullscreen_bg->node);
 	free(m);
-}
-
-void
-cleanuplisteners(void)
-{
-	wl_list_remove(&cursor_axis.link);
-	wl_list_remove(&cursor_button.link);
-	wl_list_remove(&cursor_frame.link);
-	wl_list_remove(&cursor_motion.link);
-	wl_list_remove(&cursor_motion_absolute.link);
-	wl_list_remove(&gpu_reset.link);
-	wl_list_remove(&new_idle_inhibitor.link);
-	wl_list_remove(&layout_change.link);
-	wl_list_remove(&new_input_device.link);
-	wl_list_remove(&new_virtual_keyboard.link);
-	wl_list_remove(&new_virtual_pointer.link);
-	wl_list_remove(&new_pointer_constraint.link);
-	wl_list_remove(&new_output.link);
-	wl_list_remove(&new_xdg_toplevel.link);
-	wl_list_remove(&new_xdg_decoration.link);
-	wl_list_remove(&new_xdg_popup.link);
-	wl_list_remove(&new_layer_surface.link);
-	wl_list_remove(&output_mgr_apply.link);
-	wl_list_remove(&output_mgr_test.link);
-	wl_list_remove(&output_power_mgr_set_mode.link);
-	wl_list_remove(&request_activate.link);
-	wl_list_remove(&request_cursor.link);
-	wl_list_remove(&request_set_psel.link);
-	wl_list_remove(&request_set_sel.link);
-	wl_list_remove(&request_set_cursor_shape.link);
-	wl_list_remove(&request_start_drag.link);
-	wl_list_remove(&start_drag.link);
-	wl_list_remove(&new_session_lock.link);
-#ifdef XWAYLAND
-	wl_list_remove(&new_xwayland_surface.link);
-	wl_list_remove(&xwayland_ready.link);
-#endif
 }
 
 void

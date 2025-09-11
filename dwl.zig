@@ -117,8 +117,8 @@ fn setup() !void {
     drw = try .autocreate(backend);
     errdefer drw.destroy();
 
-    drw.events.lost.add(&gpu_reset);
-    errdefer gpu_reset.link.remove();
+    drw.events.lost.add(&Listeners.gpu_reset);
+    errdefer Listeners.gpu_reset.link.remove();
 
     // Create shm, drm and linux_dmabuf interfaces by ourselves.
     // The simplest way is to call:
@@ -166,20 +166,20 @@ fn setup() !void {
 
     // Initializes the interface used to implement urgency hints
     activation = try .create(dpy);
-    activation.events.request_activate.add(&request_activate);
-    errdefer request_activate.link.remove();
+    activation.events.request_activate.add(&Listeners.request_activate);
+    errdefer Listeners.request_activate.link.remove();
 
     wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
 
     power_mgr = try .create(dpy);
-    power_mgr.events.set_mode.add(&output_power_mgr_set_mode);
-    errdefer output_power_mgr_set_mode.link.remove();
+    power_mgr.events.set_mode.add(&Listeners.output_power_mgr_set_mode);
+    errdefer Listeners.output_power_mgr_set_mode.link.remove();
 
     // Creates an output layout, which is a wlroots utility for working with an
     // arrangement of screens in a physical layout.
     output_layout = try .create(dpy);
-    output_layout.events.change.add(&layout_change);
-    errdefer layout_change.link.remove();
+    output_layout.events.change.add(&Listeners.layout_change);
+    errdefer Listeners.layout_change.link.remove();
 
     _ = try wlroots.XdgOutputManagerV1.create(dpy, output_layout);
 
@@ -191,37 +191,37 @@ fn setup() !void {
 
     // Configure a listener to be notified when new outputs are available on the
     // backend.
-    backend.events.new_output.add(&new_output);
-    errdefer new_output.link.remove();
+    backend.events.new_output.add(&Listeners.new_output);
+    errdefer Listeners.new_output.link.remove();
 
     xdg_shell = try .create(dpy, 6);
-    xdg_shell.events.new_toplevel.add(&new_xdg_toplevel);
-    errdefer new_xdg_toplevel.link.remove();
-    xdg_shell.events.new_popup.add(&new_xdg_popup);
-    errdefer new_xdg_popup.link.remove();
+    xdg_shell.events.new_toplevel.add(&Listeners.new_xdg_toplevel);
+    errdefer Listeners.new_xdg_toplevel.link.remove();
+    xdg_shell.events.new_popup.add(&Listeners.new_xdg_popup);
+    errdefer Listeners.new_xdg_popup.link.remove();
 
     layer_shell = try .create(dpy, 3);
-    layer_shell.events.new_surface.add(&new_layer_surface);
-    errdefer new_layer_surface.link.remove();
+    layer_shell.events.new_surface.add(&Listeners.new_layer_surface);
+    errdefer Listeners.new_layer_surface.link.remove();
 
     idle_notifier = try .create(dpy);
     idle_inhibit_mgr = try .create(dpy);
-    idle_inhibit_mgr.events.new_inhibitor.add(&new_idle_inhibitor);
-    errdefer new_idle_inhibitor.link.remove();
+    idle_inhibit_mgr.events.new_inhibitor.add(&Listeners.new_idle_inhibitor);
+    errdefer Listeners.new_idle_inhibitor.link.remove();
 
     session_lock_mgr = try .create(dpy);
-    session_lock_mgr.events.new_lock.add(&new_session_lock);
-    errdefer new_session_lock.link.remove();
+    session_lock_mgr.events.new_lock.add(&Listeners.new_session_lock);
+    errdefer Listeners.new_session_lock.link.remove();
 
     // Use decoration protocols to negotiate server-side decorations.
     // (KDE server decoration has no zig-wlroots binding)
     xdg_decoration_mgr = try .create(dpy);
-    xdg_decoration_mgr.events.new_toplevel_decoration.add(&new_xdg_decoration);
-    errdefer new_xdg_decoration.link.remove();
+    xdg_decoration_mgr.events.new_toplevel_decoration.add(&Listeners.new_xdg_decoration);
+    errdefer Listeners.new_xdg_decoration.link.remove();
 
     pointer_constraints = try .create(dpy);
-    pointer_constraints.events.new_constraint.add(&new_pointer_constraint);
-    errdefer new_pointer_constraint.link.remove();
+    pointer_constraints.events.new_constraint.add(&Listeners.new_pointer_constraint);
+    errdefer Listeners.new_pointer_constraint.link.remove();
 
     relative_pointer_mgr = try .create(dpy);
 
@@ -243,48 +243,48 @@ fn setup() !void {
     // it will generate aggregate events for all of them. In these events, we
     // can choose how we want to process them, forwarding them to clients and
     // moving the cursor around.
-    cursor.events.motion.add(&cursor_motion);
-    errdefer cursor_motion.link.remove();
-    cursor.events.motion_absolute.add(&cursor_motion_absolute);
-    errdefer cursor_motion_absolute.link.remove();
-    cursor.events.button.add(&cursor_button);
-    errdefer cursor_button.link.remove();
-    cursor.events.axis.add(&cursor_axis);
-    errdefer cursor_axis.link.remove();
-    cursor.events.frame.add(&cursor_frame);
-    errdefer cursor_frame.link.remove();
+    cursor.events.motion.add(&Listeners.cursor_motion);
+    errdefer Listeners.cursor_motion.link.remove();
+    cursor.events.motion_absolute.add(&Listeners.cursor_motion_absolute);
+    errdefer Listeners.cursor_motion_absolute.link.remove();
+    cursor.events.button.add(&Listeners.cursor_button);
+    errdefer Listeners.cursor_button.link.remove();
+    cursor.events.axis.add(&Listeners.cursor_axis);
+    errdefer Listeners.cursor_axis.link.remove();
+    cursor.events.frame.add(&Listeners.cursor_frame);
+    errdefer Listeners.cursor_frame.link.remove();
 
     cursor_shape_mgr = try .create(dpy, 1);
-    cursor_shape_mgr.events.request_set_shape.add(&request_set_cursor_shape);
-    errdefer request_set_cursor_shape.link.remove();
+    cursor_shape_mgr.events.request_set_shape.add(&Listeners.request_set_cursor_shape);
+    errdefer Listeners.request_set_cursor_shape.link.remove();
 
     // Configures a seat, which is a single "seat" at which a user sits and
     // operates the computer. This conceptually includes up to one keyboard,
     // pointer, touch, and drawing tablet device. We also rig up a listener to
     // let us know when new input devices are available on the backend.
-    backend.events.new_input.add(&new_input_device);
-    errdefer new_input_device.link.remove();
+    backend.events.new_input.add(&Listeners.new_input_device);
+    errdefer Listeners.new_input_device.link.remove();
 
     // Setup for virtual input devices
     virtual_keyboard_mgr = try .create(dpy);
-    virtual_keyboard_mgr.events.new_virtual_keyboard.add(&new_virtual_keyboard);
-    errdefer new_virtual_keyboard.link.remove();
+    virtual_keyboard_mgr.events.new_virtual_keyboard.add(&Listeners.new_virtual_keyboard);
+    errdefer Listeners.new_virtual_keyboard.link.remove();
     virtual_pointer_mgr = try .create(dpy);
-    virtual_pointer_mgr.events.new_virtual_pointer.add(&new_virtual_pointer);
-    errdefer new_virtual_pointer.link.remove();
+    virtual_pointer_mgr.events.new_virtual_pointer.add(&Listeners.new_virtual_pointer);
+    errdefer Listeners.new_virtual_pointer.link.remove();
 
     seat = try .create(dpy, "seat0");
     errdefer seat.destroy();
-    seat.events.request_set_cursor.add(&request_cursor);
-    errdefer request_cursor.link.remove();
-    seat.events.request_set_selection.add(&request_set_sel);
-    errdefer request_set_sel.link.remove();
-    seat.events.request_set_primary_selection.add(&request_set_psel);
-    errdefer request_set_psel.link.remove();
-    seat.events.request_start_drag.add(&request_start_drag);
-    errdefer request_start_drag.link.remove();
-    seat.events.start_drag.add(&start_drag);
-    errdefer start_drag.link.remove();
+    seat.events.request_set_cursor.add(&Listeners.request_cursor);
+    errdefer Listeners.request_cursor.link.remove();
+    seat.events.request_set_selection.add(&Listeners.request_set_sel);
+    errdefer Listeners.request_set_sel.link.remove();
+    seat.events.request_set_primary_selection.add(&Listeners.request_set_psel);
+    errdefer Listeners.request_set_psel.link.remove();
+    seat.events.request_start_drag.add(&Listeners.request_start_drag);
+    errdefer Listeners.request_start_drag.link.remove();
+    seat.events.start_drag.add(&Listeners.start_drag);
+    errdefer Listeners.start_drag.link.remove();
 
     kb_group = createkeyboardgroup();
     comptime assert(@TypeOf(kb_group.destroy) == C.wl_listener); // remove @ptrCast
@@ -292,10 +292,10 @@ fn setup() !void {
     destroy.link.init();
 
     output_mgr = try .create(dpy);
-    output_mgr.events.apply.add(&output_mgr_apply);
-    errdefer output_mgr_apply.link.remove();
-    output_mgr.events.@"test".add(&output_mgr_test);
-    errdefer output_mgr_test.link.remove();
+    output_mgr.events.apply.add(&Listeners.output_mgr_apply);
+    errdefer Listeners.output_mgr_apply.link.remove();
+    output_mgr.events.@"test".add(&Listeners.output_mgr_test);
+    errdefer Listeners.output_mgr_test.link.remove();
 
     // Make sure XWayland clients don't connect to the parent X server,
     // e.g when running in the x11 backend or the wayland backend and the
@@ -382,8 +382,8 @@ fn gpureset(_: *wl.Listener(void)) void {
     errdefer new_alloc.destroy();
 
     // Remove from old drw, add to new
-    gpu_reset.link.remove();
-    new_drw.events.lost.add(&gpu_reset);
+    Listeners.gpu_reset.link.remove();
+    new_drw.events.lost.add(&Listeners.gpu_reset);
 
     compositor.setRenderer(new_drw);
 
@@ -575,34 +575,42 @@ var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
-export var cursor_axis: wl.Listener(*wlroots.Pointer.event.Axis) = .init(axisnotify);
-export var cursor_button: wl.Listener(*wlroots.Pointer.event.Button) = .init(_buttonpress);
-export var cursor_frame: wl.Listener(*wlroots.Cursor) = .init(cursorframe);
-export var cursor_motion: wl.Listener(*wlroots.Pointer.event.Motion) = .init(_motionrelative);
-export var cursor_motion_absolute: wl.Listener(*wlroots.Pointer.event.MotionAbsolute) = .init(_motionabsolute);
-export var gpu_reset: wl.Listener(void) = .init(gpureset);
-export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
-export var new_idle_inhibitor: wl.Listener(*wlroots.IdleInhibitorV1) = .init(createidleinhibitor);
-export var new_input_device: wl.Listener(*wlroots.InputDevice) = .init(inputdevice);
-export var new_layer_surface: wl.Listener(*wlroots.LayerSurfaceV1) = .init(_createlayersurface);
-export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
-export var new_pointer_constraint: wl.Listener(*wlroots.PointerConstraintV1) = .init(_createpointerconstraint);
-export var new_session_lock: wl.Listener(*wlroots.SessionLockV1) = .init(_locksession);
-export var new_virtual_keyboard: wl.Listener(*wlroots.VirtualKeyboardV1) = .init(virtualkeyboard);
-export var new_virtual_pointer: wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPointer) = .init(virtualpointer);
-export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(_createdecoration);
-export var new_xdg_popup: wl.Listener(*wlroots.XdgPopup) = .init(_createpopup);
-export var new_xdg_toplevel: wl.Listener(*wlroots.XdgToplevel) = .init(_createnotify);
-export var output_mgr_apply: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrapply);
-export var output_mgr_test: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrtest);
-export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
-export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
-export var request_cursor: wl.Listener(*wlroots.Seat.event.RequestSetCursor) = .init(setcursor);
-export var request_set_cursor_shape: wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape) = .init(_setcursorshape);
-export var request_set_psel: wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection) = .init(setpsel);
-export var request_set_sel: wl.Listener(*wlroots.Seat.event.RequestSetSelection) = .init(setsel);
-export var request_start_drag: wl.Listener(*wlroots.Seat.event.RequestStartDrag) = .init(requeststartdrag);
-export var start_drag: wl.Listener(*wlroots.Drag) = .init(startdrag);
+const Listeners = struct {
+    pub export var cursor_axis: wl.Listener(*wlroots.Pointer.event.Axis) = .init(axisnotify);
+    pub export var cursor_button: wl.Listener(*wlroots.Pointer.event.Button) = .init(_buttonpress);
+    pub export var cursor_frame: wl.Listener(*wlroots.Cursor) = .init(cursorframe);
+    pub export var cursor_motion: wl.Listener(*wlroots.Pointer.event.Motion) = .init(_motionrelative);
+    pub export var cursor_motion_absolute: wl.Listener(*wlroots.Pointer.event.MotionAbsolute) = .init(_motionabsolute);
+    pub export var gpu_reset: wl.Listener(void) = .init(gpureset);
+    pub export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
+    pub export var new_idle_inhibitor: wl.Listener(*wlroots.IdleInhibitorV1) = .init(createidleinhibitor);
+    pub export var new_input_device: wl.Listener(*wlroots.InputDevice) = .init(inputdevice);
+    pub export var new_layer_surface: wl.Listener(*wlroots.LayerSurfaceV1) = .init(_createlayersurface);
+    pub export var new_output: wl.Listener(*wlroots.Output) = .init(_createmon);
+    pub export var new_pointer_constraint: wl.Listener(*wlroots.PointerConstraintV1) = .init(_createpointerconstraint);
+    pub export var new_session_lock: wl.Listener(*wlroots.SessionLockV1) = .init(_locksession);
+    pub export var new_virtual_keyboard: wl.Listener(*wlroots.VirtualKeyboardV1) = .init(virtualkeyboard);
+    pub export var new_virtual_pointer: wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPointer) = .init(virtualpointer);
+    pub export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(_createdecoration);
+    pub export var new_xdg_popup: wl.Listener(*wlroots.XdgPopup) = .init(_createpopup);
+    pub export var new_xdg_toplevel: wl.Listener(*wlroots.XdgToplevel) = .init(_createnotify);
+    pub export var output_mgr_apply: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrapply);
+    pub export var output_mgr_test: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrtest);
+    pub export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
+    pub export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
+    pub export var request_cursor: wl.Listener(*wlroots.Seat.event.RequestSetCursor) = .init(setcursor);
+    pub export var request_set_cursor_shape: wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape) = .init(_setcursorshape);
+    pub export var request_set_psel: wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection) = .init(setpsel);
+    pub export var request_set_sel: wl.Listener(*wlroots.Seat.event.RequestSetSelection) = .init(setsel);
+    pub export var request_start_drag: wl.Listener(*wlroots.Seat.event.RequestStartDrag) = .init(requeststartdrag);
+    pub export var start_drag: wl.Listener(*wlroots.Drag) = .init(startdrag);
+};
+
+export fn cleanuplisteners() void {
+    inline for (@typeInfo(Listeners).@"struct".decls) |decl| {
+        @field(Listeners, decl.name).link.remove();
+    }
+}
 
 fn requeststartdrag(_: *wl.Listener(*wlroots.Seat.event.RequestStartDrag), event: *wlroots.Seat.event.RequestStartDrag) void {
     if (seat.validatePointerGrabSerial(event.origin, event.serial)) {
