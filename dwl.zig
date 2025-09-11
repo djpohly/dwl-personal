@@ -273,6 +273,7 @@ fn setup() !void {
     errdefer new_virtual_pointer.link.remove();
 
     seat = try .create(dpy, "seat0");
+    errdefer seat.destroy();
     seat.events.request_set_cursor.add(&request_cursor);
     errdefer request_cursor.link.remove();
     seat.events.request_set_selection.add(&request_set_sel);
