@@ -6,11 +6,7 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Set up project build options
-    const xwayland = b.option(bool, "xwayland", "Build with Xwayland support") orelse false;
-    const options = b.addOptions();
-    options.addOption(bool, "xwayland", xwayland);
-
+    // Compile needs from the C library
     const c = b.addTranslateC(.{
         .root_source_file = b.path("internal.h"),
         .target = target,
@@ -67,22 +63,6 @@ pub fn build(b: *std.Build) !void {
     wlroots.addImport("xkbcommon", xkbcommon);
     wlroots.addImport("pixman", pixman);
 
-    // C interop
-    const c_step = b.addTranslateC(.{
-        .root_source_file = b.path("c.h"),
-        .target = target,
-        .optimize = optimize,
-    });
-    try c_step.include_dirs.append(.{ .path_system = .{ .src_path = .{
-        .owner = b,
-        .sub_path = "/usr/include/wlroots-0.19",
-    }}});
-    try c_step.include_dirs.append(.{ .path_system = .{ .src_path = .{
-        .owner = b,
-        .sub_path = "/usr/include/pixman-1",
-    }}});
-    c_step.defineCMacro("WLR_USE_UNSTABLE", "");
-
     // Main executable module
     const exe_mod = b.createModule(.{
         .root_source_file = b.path("dwl.zig"),
@@ -92,8 +72,6 @@ pub fn build(b: *std.Build) !void {
     exe_mod.addIncludePath(b.path("."));
 
     // Imports
-    exe_mod.addOptions("build_options", options);
-    exe_mod.addImport("C", c_step.createModule());
     exe_mod.addImport("flags", flags);
     exe_mod.addImport("wlroots", wlroots);
     exe_mod.addImport("wayland", wayland);
@@ -106,7 +84,6 @@ pub fn build(b: *std.Build) !void {
     }});
     exe_mod.addCMacro("WLR_USE_UNSTABLE", "");
     exe_mod.addCMacro("VERSION", "\"0.8-dev\"");
-    if (xwayland) exe_mod.addCMacro("XWAYLAND", "1");
 
     inline for (.{
         .{"enum-header", "/usr/share/wayland-protocols/staging/cursor-shape/cursor-shape-v1.xml", "cursor-shape-v1-protocol.h"},
@@ -122,20 +99,27 @@ pub fn build(b: *std.Build) !void {
     }
 
     // Build and install executable
+    const exe = defineExecutableStep(b, exe_mod);
+    b.installArtifact(exe);
+
+    const check_step = b.step("check", "Check for compile errors");
+    const exe_check = defineExecutableStep(b, exe_mod);
+    check_step.dependOn(&exe_check.step);
+}
+
+fn defineExecutableStep(b: *std.Build, root_module: *std.Build.Module) *std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = "dwl",
-        .root_module = exe_mod,
+        .root_module = root_module,
     });
 
     exe.linkSystemLibrary("wayland-server");
     exe.linkSystemLibrary("xkbcommon");
     exe.linkSystemLibrary("libinput");
     exe.linkSystemLibrary("wlroots-0.19");
-    if (xwayland) {
-        exe.linkSystemLibrary("xcb");
-        exe.linkSystemLibrary("xcb-icccm");
-    }
     exe.linkLibC();
 
     b.installArtifact(exe);
+
+    return exe;
 }

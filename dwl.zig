@@ -284,6 +284,16 @@ fn setup() !void {
     seat.events.start_drag.add(&start_drag);
     errdefer start_drag.link.remove();
 
+    kb_group = createkeyboardgroup();
+    const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&kb_group.destroy);
+    destroy.link.init();
+
+    output_mgr = try .create(dpy);
+    output_mgr.events.apply.add(&output_mgr_apply);
+    errdefer output_mgr_apply.link.remove();
+    output_mgr.events.@"test".add(&output_mgr_test);
+    errdefer output_mgr_test.link.remove();
+
     _setup();
 }
 
@@ -328,7 +338,7 @@ fn virtualkeyboard(_: *wl.Listener(*wlroots.VirtualKeyboardV1), kb: *wlroots.Vir
     _ = kb.keyboard.setKeymap(wlr_group.keyboard.keymap);
 
     const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&group.destroy);
-    destroy.* = .init(_destroykeyboardgroup);
+    destroy.setNotify(_destroykeyboardgroup);
     kb.keyboard.base.events.destroy.add(destroy);
     errdefer destroy.link.remove();
 
@@ -530,7 +540,7 @@ export var grabcx: c_int = 0;
 export var grabcy: c_int = 0;
 export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
 export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
-export var kb_group: *wlroots.KeyboardGroup = undefined;
+export var kb_group: *C.KeyboardGroup = undefined;
 var layer_shell: *wlroots.LayerShellV1 = undefined;
 export var locked_bg: *wlroots.SceneRect = undefined;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
@@ -572,6 +582,8 @@ export var new_virtual_pointer: wl.Listener(*wlroots.VirtualPointerManagerV1.eve
 export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(_createdecoration);
 export var new_xdg_popup: wl.Listener(*wlroots.XdgPopup) = .init(_createpopup);
 export var new_xdg_toplevel: wl.Listener(*wlroots.XdgToplevel) = .init(_createnotify);
+export var output_mgr_apply: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrapply);
+export var output_mgr_test: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrtest);
 export var output_power_mgr_set_mode: wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode) = .init(powermgrsetmode);
 export var request_activate: wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate) = .init(urgent);
 export var request_cursor: wl.Listener(*wlroots.Seat.event.RequestSetCursor) = .init(setcursor);
@@ -665,9 +677,10 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
     // communiciated to the client. In dwl we always have a cursor, even if
     // there are no pointer devices, so we always include that capability.
     // TODO do we actually require a cursor?
+    const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(kb_group.wlr_group.?));
     seat.setCapabilities(.{
         .pointer = true,
-        .keyboard = (kb_group.devices.next != &kb_group.devices),
+        .keyboard = (wlr_group.devices.next != &wlr_group.devices),
     });
 }
 
@@ -702,6 +715,10 @@ extern fn motionabsolute(*wl.Listener(*wlroots.Pointer.event.MotionAbsolute), *w
 fn _motionabsolute(l: *wl.Listener(*wlroots.Pointer.event.MotionAbsolute), event: *wlroots.Pointer.event.MotionAbsolute) void { motionabsolute(l, event); }
 extern fn motionrelative(*wl.Listener(*wlroots.Pointer.event.Motion), *wlroots.Pointer.event.Motion) void;
 fn _motionrelative(l: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void { motionrelative(l, event); }
+extern fn outputmgrapply(*wl.Listener(*wlroots.OutputConfigurationV1), *wlroots.OutputConfigurationV1) void;
+fn _outputmgrapply(l: *wl.Listener(*wlroots.OutputConfigurationV1), output_config: *wlroots.OutputConfigurationV1) void { outputmgrapply(l, output_config); }
+extern fn outputmgrtest(*wl.Listener(*wlroots.OutputConfigurationV1), *wlroots.OutputConfigurationV1) void;
+fn _outputmgrtest(l: *wl.Listener(*wlroots.OutputConfigurationV1), config_head: *wlroots.OutputConfigurationV1) void { outputmgrtest(l, config_head); }
 extern fn printstatus() void;
 extern fn setcursorshape(*wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), *wlroots.CursorShapeManagerV1.event.RequestSetShape) void;
 fn _setcursorshape(l: *wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), event: *wlroots.CursorShapeManagerV1.event.RequestSetShape) void { setcursorshape(l, event); }

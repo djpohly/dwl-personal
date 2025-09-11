@@ -181,9 +181,9 @@ void motionnotify(uint32_t time, struct wlr_input_device *device, double sx,
 		double sy, double sx_unaccel, double sy_unaccel);
 void motionrelative(struct wl_listener *listener, void *data);
 static void moveresize(const Arg *arg);
-static void outputmgrapply(struct wl_listener *listener, void *data);
+void outputmgrapply(struct wl_listener *listener, void *data);
 static void outputmgrapplyortest(struct wlr_output_configuration_v1 *config, int test);
-static void outputmgrtest(struct wl_listener *listener, void *data);
+void outputmgrtest(struct wl_listener *listener, void *data);
 static void pointerfocus(Client *c, struct wlr_surface *surface,
 		double sx, double sy, uint32_t time);
 void printstatus(void);
@@ -286,8 +286,9 @@ extern struct wl_listener new_xdg_toplevel;
 extern struct wl_listener new_xdg_popup;
 static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
 extern struct wl_listener new_layer_surface;
-static struct wl_listener output_mgr_apply = {.notify = outputmgrapply};
-static struct wl_listener output_mgr_test = {.notify = outputmgrtest};
+extern struct wl_listener new_session_lock;
+extern struct wl_listener output_mgr_apply;
+extern struct wl_listener output_mgr_test;
 extern struct wl_listener output_power_mgr_set_mode;
 extern struct wl_listener request_activate;
 extern struct wl_listener request_cursor;
@@ -296,7 +297,6 @@ extern struct wl_listener request_set_sel;
 extern struct wl_listener request_set_cursor_shape;
 extern struct wl_listener request_start_drag;
 extern struct wl_listener start_drag;
-extern struct wl_listener new_session_lock;
 
 #ifdef XWAYLAND
 static void activatex11(struct wl_listener *listener, void *data);
@@ -2118,13 +2118,6 @@ void
 _setup(void)
 {
 	int i;
-
-	kb_group = createkeyboardgroup();
-	wl_list_init(&kb_group->destroy.link);
-
-	output_mgr = wlr_output_manager_v1_create(dpy);
-	wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
-	wl_signal_add(&output_mgr->events.test, &output_mgr_test);
 
 	/* Make sure XWayland clients don't connect to the parent X server,
 	 * e.g when running in the x11 backend or the wayland backend and the
