@@ -10,6 +10,7 @@ const F = posix.F;
 const SIG = posix.SIG;
 const SA = posix.SA;
 const O = std.os.linux.O;
+const assert = std.debug.assert;
 const config = @import("config.zig");
 
 var environ: std.process.EnvMap = undefined;
@@ -286,6 +287,7 @@ fn setup() !void {
     errdefer start_drag.link.remove();
 
     kb_group = createkeyboardgroup();
+    comptime assert(@TypeOf(kb_group.destroy) == C.wl_listener); // remove @ptrCast
     const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&kb_group.destroy);
     destroy.link.init();
 
@@ -335,9 +337,11 @@ fn virtualkeyboard(_: *wl.Listener(*wlroots.VirtualKeyboardV1), kb: *wlroots.Vir
     // virtual keyboards shouldn't share keyboard group
     const group = createkeyboardgroup();
     // Set the keymap to match the group keymap
+    comptime assert(@TypeOf(group.wlr_group) == ?*C.struct_wlr_keyboard_group_58); // remove @ptrCast
     const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(group.wlr_group));
     _ = kb.keyboard.setKeymap(wlr_group.keyboard.keymap);
 
+    comptime assert(@TypeOf(kb_group.destroy) == C.wl_listener); // remove @ptrCast
     const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&group.destroy);
     destroy.setNotify(_destroykeyboardgroup);
     kb.keyboard.base.events.destroy.add(destroy);
@@ -382,6 +386,7 @@ fn gpureset(_: *wl.Listener(void)) void {
 
     var it: MonsIterator = .init;
     while (it.next()) |m| {
+        comptime assert(@TypeOf(m.wlr_output) == [*c]C.wlr_output); // remove @ptrCast
         const output: *wlroots.Output = @ptrCast(m.wlr_output);
         _ = output.initRender(new_alloc, new_drw);
     }
@@ -455,6 +460,7 @@ fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode),
     var state: wlroots.Output.State = .init();
 
     if (@as(?*C.Monitor, @alignCast(@ptrCast(event.output.data)))) |m| {
+        comptime assert(@TypeOf(m.wlr_output) == [*c]C.wlr_output); // remove @ptrCast
         const output: *wlroots.Output = @ptrCast(m.wlr_output);
         m.gamma_lut_changed = 1;
         state.setEnabled(event.mode != .off);
@@ -515,6 +521,7 @@ fn print_child(comptime fmt: []const u8, args: anytype) !void {
 
 fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
     for (0..4) |i| {
+        comptime assert(@TypeOf(c.border[i]) == [*c]C.wlr_scene_rect); // remove @ptrCast
         const rect: *wlroots.SceneRect = @ptrCast(c.border[i]);
         rect.setColor(color);
     }
@@ -678,6 +685,7 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
     // communiciated to the client. In dwl we always have a cursor, even if
     // there are no pointer devices, so we always include that capability.
     // TODO do we actually require a cursor?
+    comptime assert(@TypeOf(kb_group.wlr_group) == ?*C.struct_wlr_keyboard_group_58);
     const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(kb_group.wlr_group.?));
     seat.setCapabilities(.{
         .pointer = true,
