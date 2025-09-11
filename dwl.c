@@ -2115,31 +2115,6 @@ setmon(Client *c, Monitor *m, uint32_t newtags)
 }
 
 void
-_setup(void)
-{
-	int i;
-
-	/* Make sure XWayland clients don't connect to the parent X server,
-	 * e.g when running in the x11 backend or the wayland backend and the
-	 * compositor has Xwayland support */
-	unsetenv("DISPLAY");
-#ifdef XWAYLAND
-	/*
-	 * Initialise the XWayland X server.
-	 * It will be started when the first X client is started.
-	 */
-	if ((xwayland = wlr_xwayland_create(dpy, compositor, 1))) {
-		wl_signal_add(&xwayland->events.ready, &xwayland_ready);
-		wl_signal_add(&xwayland->events.new_surface, &new_xwayland_surface);
-
-		setenv("DISPLAY", xwayland->display_name, 1);
-	} else {
-		fprintf(stderr, "failed to setup XWayland X server, continuing without it\n");
-	}
-#endif
-}
-
-void
 spawn(const Arg *arg)
 {
 	if (fork() == 0) {

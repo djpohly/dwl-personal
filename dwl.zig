@@ -297,7 +297,10 @@ fn setup() !void {
     output_mgr.events.@"test".add(&output_mgr_test);
     errdefer output_mgr_test.link.remove();
 
-    _setup();
+    // Make sure XWayland clients don't connect to the parent X server,
+    // e.g when running in the x11 backend or the wayland backend and the
+    // compositor has Xwayland support
+    environ.remove("DISPLAY");
 }
 
 fn setcursor(_: *wl.Listener(*wlroots.Seat.event.RequestSetCursor), event: *wlroots.Seat.event.RequestSetCursor) void {
@@ -734,4 +737,3 @@ fn _setcursorshape(l: *wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSe
 extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
 fn _updatemons(l: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(l, event); }
-extern fn _setup() void;
