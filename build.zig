@@ -6,6 +6,17 @@ pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Create config.h if needed
+    const cwd = std.fs.cwd();
+    if (cwd.access("config.h", .{})) {} else |err| switch (err) {
+        error.FileNotFound => {
+            try cwd.copyFile("config.def.h", cwd, "config.h", .{});
+        },
+        else => {
+            return err;
+        },
+    }
+
     // Compile needs from the C library
     const c = b.addTranslateC(.{
         .root_source_file = b.path("internal.h"),
