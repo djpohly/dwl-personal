@@ -122,7 +122,7 @@ typedef struct {
 } SessionLock;
 
 /* function declarations */
-static void applybounds(Client *c, struct wlr_box *bbox);
+extern void applybounds(Client *c, struct wlr_box *bbox);
 static void applyrules(Client *c);
 static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
@@ -318,23 +318,6 @@ static struct wlr_xwayland *xwayland;
 #include "client.h"
 
 /* function implementations */
-void
-applybounds(Client *c, struct wlr_box *bbox)
-{
-	/* set minimum possible */
-	c->geom.width = MAX(1 + 2 * (int)c->bw, c->geom.width);
-	c->geom.height = MAX(1 + 2 * (int)c->bw, c->geom.height);
-
-	if (c->geom.x >= bbox->x + bbox->width)
-		c->geom.x = bbox->x + bbox->width - c->geom.width;
-	if (c->geom.y >= bbox->y + bbox->height)
-		c->geom.y = bbox->y + bbox->height - c->geom.height;
-	if (c->geom.x + c->geom.width <= bbox->x)
-		c->geom.x = bbox->x;
-	if (c->geom.y + c->geom.height <= bbox->y)
-		c->geom.y = bbox->y;
-}
-
 void
 applyrules(Client *c)
 {

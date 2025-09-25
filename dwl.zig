@@ -655,6 +655,22 @@ fn setpsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection), even
     seat.setPrimarySelection(event.source, event.serial);
 }
 
+export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
+    // set minimum possible
+    const min_dim = 1 + 2 * c.bw;
+    c.geom.width = @intCast(@max(min_dim, c.geom.width));
+    c.geom.height = @intCast(@max(min_dim, c.geom.height));
+
+    if (c.geom.x >= bbox.x + bbox.width)
+        c.geom.x = bbox.x + bbox.width - c.geom.width;
+    if (c.geom.y >= bbox.y + bbox.height)
+        c.geom.y = bbox.y + bbox.height - c.geom.height;
+    if (c.geom.x + c.geom.width <= bbox.x)
+        c.geom.x = bbox.x;
+    if (c.geom.y + c.geom.height <= bbox.y)
+        c.geom.y = bbox.y;
+}
+
 fn axisnotify(_: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void {
     // This event is forwarded by the cursor when a pointer emits an axis event,
     // for example when you move the scroll wheel.
