@@ -124,7 +124,7 @@ static void arrangelayer(Monitor *m, struct wl_list *list,
 		struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
 void buttonpress(struct wl_listener *listener, void *data);
-static void chvt(const Arg *arg);
+extern void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
 void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
@@ -484,12 +484,6 @@ buttonpress(struct wl_listener *listener, void *data)
 	 * pointer focus that a button press has occurred */
 	wlr_seat_pointer_notify_button(seat,
 			event->time_msec, event->button, event->state);
-}
-
-void
-chvt(const Arg *arg)
-{
-	wlr_session_change_vt(session, arg->ui);
 }
 
 void

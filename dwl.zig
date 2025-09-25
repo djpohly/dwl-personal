@@ -70,6 +70,13 @@ export fn client_surface(c: *C.Client) *wlroots.Surface {
     return client.surface();
 }
 
+export fn chvt(arg: *C.Arg) void {
+    session.?.changeVt(arg.ui) catch |err| {
+        std.log.warn("chvt() failed: {t}", .{err});
+        return;
+    };
+}
+
 pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
