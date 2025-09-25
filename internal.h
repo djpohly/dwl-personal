@@ -47,13 +47,6 @@ typedef struct {
 	struct wl_listener fullscreen;
 	struct wl_listener set_decoration_mode;
 	struct wl_listener destroy_decoration;
-#ifdef XWAYLAND
-	struct wl_listener activate;
-	struct wl_listener associate;
-	struct wl_listener dissociate;
-	struct wl_listener configure;
-	struct wl_listener set_hints;
-#endif
 	unsigned int bw;
 	uint32_t tags;
 	int isfloating, isurgent, isfullscreen;
