@@ -34,6 +34,20 @@ const CursorMode = enum(c_uint) {
     resize,
 };
 
+const Client = extern struct {
+    c: C.Client,
+
+    pub fn surface(self: Client) *wlroots.Surface {
+        const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
+        return xdg.surface;
+    }
+};
+
+export fn client_surface(c: *C.Client) *wlroots.Surface {
+    const client: *Client = @fieldParentPtr("c", c);
+    return client.surface();
+}
+
 pub fn main() !void {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
@@ -724,8 +738,6 @@ extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Poin
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
 extern fn cleanup() void;
-extern fn client_is_x11(c: *C.Client) c_int;
-extern fn client_surface(c: *C.Client) *wlroots.Surface;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createkeyboard(*wlroots.Keyboard) void;

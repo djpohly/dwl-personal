@@ -15,15 +15,7 @@ client_is_x11(Client *c)
 	return 0;
 }
 
-struct wlr_surface *
-client_surface(Client *c)
-{
-#ifdef XWAYLAND
-	if (client_is_x11(c))
-		return c->surface.xwayland->surface;
-#endif
-	return c->surface.xdg->surface;
-}
+extern struct wlr_surface *client_surface(Client *c);
 
 int
 toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl)
