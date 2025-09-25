@@ -41,7 +41,29 @@ const Client = extern struct {
         const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
         return xdg.surface;
     }
+
+    pub fn applyBounds(self: *Client, bbox: wlroots.Box) void {
+        // set minimum possible
+        const min_dim = 1 + 2 * self.c.bw;
+        const geom = &self.c.geom;
+        geom.width = @intCast(@max(min_dim, geom.width));
+        geom.height = @intCast(@max(min_dim, geom.height));
+
+        if (geom.x >= bbox.x + bbox.width)
+            geom.x = bbox.x + bbox.width - geom.width;
+        if (geom.y >= bbox.y + bbox.height)
+            geom.y = bbox.y + bbox.height - geom.height;
+        if (geom.x + geom.width <= bbox.x)
+            geom.x = bbox.x;
+        if (geom.y + geom.height <= bbox.y)
+            geom.y = bbox.y;
+    }
 };
+
+export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
+    const client: *Client = @fieldParentPtr("c", c);
+    client.applyBounds(bbox.*);
+}
 
 export fn client_surface(c: *C.Client) *wlroots.Surface {
     const client: *Client = @fieldParentPtr("c", c);
@@ -667,22 +689,6 @@ fn setpsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetPrimarySelection), even
     // usually when the user copies something. wlroots allows compositors to
     // ignore such requests if they so choose, but in dwl we always honor them
     seat.setPrimarySelection(event.source, event.serial);
-}
-
-export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
-    // set minimum possible
-    const min_dim = 1 + 2 * c.bw;
-    c.geom.width = @intCast(@max(min_dim, c.geom.width));
-    c.geom.height = @intCast(@max(min_dim, c.geom.height));
-
-    if (c.geom.x >= bbox.x + bbox.width)
-        c.geom.x = bbox.x + bbox.width - c.geom.width;
-    if (c.geom.y >= bbox.y + bbox.height)
-        c.geom.y = bbox.y + bbox.height - c.geom.height;
-    if (c.geom.x + c.geom.width <= bbox.x)
-        c.geom.x = bbox.x;
-    if (c.geom.y + c.geom.height <= bbox.y)
-        c.geom.y = bbox.y;
 }
 
 fn axisnotify(_: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void {
