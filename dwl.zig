@@ -199,6 +199,44 @@ fn setup() !void {
     idle_notifier = try .create(dpy);
     idle_inhibit_mgr = try .create(dpy);
     idle_inhibit_mgr.events.new_inhibitor.add(&new_idle_inhibitor);
+    errdefer new_idle_inhibitor.link.remove();
+
+    session_lock_mgr = try .create(dpy);
+    session_lock_mgr.events.new_lock.add(&new_session_lock);
+    errdefer new_session_lock.link.remove();
+
+    // Use decoration protocols to negotiate server-side decorations.
+    // (KDE server decoration has no zig-wlroots binding)
+    xdg_decoration_mgr = try .create(dpy);
+    xdg_decoration_mgr.events.new_toplevel_decoration.add(&new_xdg_decoration);
+    errdefer new_xdg_decoration.link.remove();
+
+    pointer_constraints = try .create(dpy);
+    pointer_constraints.events.new_constraint.add(&new_pointer_constraint);
+    errdefer new_pointer_constraint.link.remove();
+
+    relative_pointer_mgr = try .create(dpy);
+
+    // Creates a cursor, which is a wlroots utility for tracking the cursor
+    // image shown on screen.
+    cursor = try .create();
+    errdefer cursor.destroy();
+    cursor.attachOutputLayout(output_layout);
+
+    // Creates an xcursor manager, another wlroots utility which loads up
+    // Xcursor themes to source cursor images from and makes sure that cursor
+    // images are available at all scale factors on the screen (necessary for
+    // HiDPI support). Scaled cursors will be loaded with each output.
+    cursor_mgr = try .create(null, 24);
+    _ = C.setenv("XCURSOR_SIZE", "24", 1);
+
+    // wlr_cursor *only* displays an image on screen. It does not move around
+    // when the pointer moves. However, we can attach input devices to it, and
+    // it will generate aggregate events for all of them. In these events, we
+    // can choose how we want to process them, forwarding them to clients and
+    // moving the cursor around.
+    cursor.events.motion.add(&cursor_motion);
+    errdefer cursor_motion.link.remove();
 
     _setup();
 }
@@ -416,7 +454,7 @@ export var scene: *wlroots.Scene = undefined;
 export var seat: *wlroots.Seat = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
-export var session_lock_mgr: wlroots.SessionLockManagerV1 = undefined;
+export var session_lock_mgr: *wlroots.SessionLockManagerV1 = undefined;
 export var virtual_keyboard_mgr: *wlroots.VirtualKeyboardManagerV1 = undefined;
 export var virtual_pointer_mgr: *wlroots.VirtualPointerManagerV1 = undefined;
 export var xdg_decoration_mgr: *wlroots.XdgDecorationManagerV1 = undefined;
@@ -426,11 +464,15 @@ export var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
+export var cursor_motion = listener(_motionrelative);
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
 export var new_idle_inhibitor = listener(createidleinhibitor);
 export var new_layer_surface = listener(_createlayersurface);
 export var new_output = listener(_createmon);
+export var new_pointer_constraint = listener(_createpointerconstraint);
+export var new_session_lock = listener(_locksession);
+export var new_xdg_decoration = listener(_createdecoration);
 export var new_xdg_popup = listener(_createpopup);
 export var new_xdg_toplevel = listener(_createnotify);
 export var output_power_mgr_set_mode = listener(powermgrsetmode);
@@ -453,17 +495,25 @@ extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;
 extern fn client_surface(c: *C.Client) *wlroots.Surface;
+extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
+fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;
 fn _createmon(l: *wl.Listener(*wlroots.Output), event: *wlroots.Output) void { createmon(l, event); }
 extern fn createnotify(*wl.Listener(*wlroots.XdgToplevel), *wlroots.XdgToplevel) void;
 fn _createnotify(l: *wl.Listener(*wlroots.XdgToplevel), event: *wlroots.XdgToplevel) void { createnotify(l, event); }
+extern fn createpointerconstraint(*wl.Listener(*wlroots.PointerConstraintV1), *wlroots.PointerConstraintV1) void;
+fn _createpointerconstraint(l: *wl.Listener(*wlroots.PointerConstraintV1), event: *wlroots.PointerConstraintV1) void { createpointerconstraint(l, event); }
 extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
+extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
+fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }
+extern fn motionrelative(*wl.Listener(*wlroots.Pointer.event.Motion), *wlroots.Pointer.event.Motion) void;
+fn _motionrelative(l: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void { motionrelative(l, event); }
 extern fn printstatus() void;
 extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
