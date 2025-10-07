@@ -180,7 +180,7 @@ static void mapnotify(struct wl_listener *listener, void *data);
 static void maximizenotify(struct wl_listener *listener, void *data);
 static void monocle(Monitor *m);
 static void movestack(const Arg *arg);
-static void motionabsolute(struct wl_listener *listener, void *data);
+void motionabsolute(struct wl_listener *listener, void *data);
 static void motionnotify(uint32_t time, struct wlr_input_device *device, double sx,
 		double sy, double sx_unaccel, double sy_unaccel);
 void motionrelative(struct wl_listener *listener, void *data);
@@ -290,7 +290,7 @@ static struct wl_listener cursor_axis = {.notify = axisnotify};
 static struct wl_listener cursor_button = {.notify = buttonpress};
 static struct wl_listener cursor_frame = {.notify = cursorframe};
 extern struct wl_listener cursor_motion;
-static struct wl_listener cursor_motion_absolute = {.notify = motionabsolute};
+extern struct wl_listener cursor_motion_absolute;
 extern struct wl_listener gpu_reset;
 extern struct wl_listener layout_change;
 extern struct wl_listener new_idle_inhibitor;
@@ -2256,7 +2256,6 @@ _setup(void)
 {
 	int i;
 
-	wl_signal_add(&cursor->events.motion_absolute, &cursor_motion_absolute);
 	wl_signal_add(&cursor->events.button, &cursor_button);
 	wl_signal_add(&cursor->events.axis, &cursor_axis);
 	wl_signal_add(&cursor->events.frame, &cursor_frame);

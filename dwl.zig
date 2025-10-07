@@ -237,6 +237,8 @@ fn setup() !void {
     // moving the cursor around.
     cursor.events.motion.add(&cursor_motion);
     errdefer cursor_motion.link.remove();
+    cursor.events.motion_absolute.add(&cursor_motion_absolute);
+    errdefer cursor_motion_absolute.link.remove();
 
     _setup();
 }
@@ -465,6 +467,7 @@ extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
 export var cursor_motion = listener(_motionrelative);
+export var cursor_motion_absolute = listener(_motionabsolute);
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
 export var new_idle_inhibitor = listener(createidleinhibitor);
@@ -512,6 +515,8 @@ extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
 fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }
+extern fn motionabsolute(*wl.Listener(*wlroots.Pointer.event.MotionAbsolute), *wlroots.Pointer.event.MotionAbsolute) void;
+fn _motionabsolute(l: *wl.Listener(*wlroots.Pointer.event.MotionAbsolute), event: *wlroots.Pointer.event.MotionAbsolute) void { motionabsolute(l, event); }
 extern fn motionrelative(*wl.Listener(*wlroots.Pointer.event.Motion), *wlroots.Pointer.event.Motion) void;
 fn _motionrelative(l: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void { motionrelative(l, event); }
 extern fn printstatus() void;
