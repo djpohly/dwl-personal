@@ -128,7 +128,7 @@ static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
 		struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
-static void axisnotify(struct wl_listener *listener, void *data);
+void axisnotify(struct wl_listener *listener, void *data);
 void buttonpress(struct wl_listener *listener, void *data);
 static void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
@@ -150,7 +150,7 @@ static void createpointer(struct wlr_pointer *pointer);
 void createpointerconstraint(struct wl_listener *listener, void *data);
 void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
-static void cursorframe(struct wl_listener *listener, void *data);
+void cursorframe(struct wl_listener *listener, void *data);
 static void cursorwarptohint(void);
 static void destroydecoration(struct wl_listener *listener, void *data);
 static void destroydragicon(struct wl_listener *listener, void *data);
@@ -286,7 +286,7 @@ extern struct wl_list mons;
 extern Monitor *selmon;
 
 /* global event handlers */
-static struct wl_listener cursor_axis = {.notify = axisnotify};
+extern struct wl_listener cursor_axis;
 extern struct wl_listener cursor_button;
 static struct wl_listener cursor_frame = {.notify = cursorframe};
 extern struct wl_listener cursor_motion;
@@ -2255,9 +2255,6 @@ void
 _setup(void)
 {
 	int i;
-
-	wl_signal_add(&cursor->events.axis, &cursor_axis);
-	wl_signal_add(&cursor->events.frame, &cursor_frame);
 
 	cursor_shape_mgr = wlr_cursor_shape_manager_v1_create(dpy, 1);
 	wl_signal_add(&cursor_shape_mgr->events.request_set_shape, &request_set_cursor_shape);

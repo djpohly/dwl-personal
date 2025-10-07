@@ -241,6 +241,10 @@ fn setup() !void {
     errdefer cursor_motion_absolute.link.remove();
     cursor.events.button.add(&cursor_button);
     errdefer cursor_button.link.remove();
+    cursor.events.axis.add(&cursor_axis);
+    errdefer cursor_axis.link.remove();
+    cursor.events.frame.add(&cursor_frame);
+    errdefer cursor_frame.link.remove();
 
     _setup();
 }
@@ -468,6 +472,8 @@ export var xdg_shell: *wlroots.XdgShell = undefined;
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
+export var cursor_axis = listener(_axisnotify);
+export var cursor_frame = listener(_cursorframe);
 export var cursor_motion = listener(_motionrelative);
 export var cursor_button = listener(_buttonpress);
 export var cursor_motion_absolute = listener(_motionabsolute);
@@ -497,6 +503,8 @@ inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
     return .init(handler);
 }
 
+extern fn axisnotify(*wl.Listener(*wlroots.Pointer.event.Axis), *wlroots.Pointer.event.Axis) void;
+fn _axisnotify(l: *wl.Listener(*wlroots.Pointer.event.Axis), event: *wlroots.Pointer.event.Axis) void { axisnotify(l, event); }
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
@@ -515,6 +523,8 @@ extern fn createpointerconstraint(*wl.Listener(*wlroots.PointerConstraintV1), *w
 fn _createpointerconstraint(l: *wl.Listener(*wlroots.PointerConstraintV1), event: *wlroots.PointerConstraintV1) void { createpointerconstraint(l, event); }
 extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
+extern fn cursorframe(*wl.Listener(*wlroots.Cursor), *wlroots.Cursor) void;
+fn _cursorframe(l: *wl.Listener(*wlroots.Cursor), event: *wlroots.Cursor) void { cursorframe(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
