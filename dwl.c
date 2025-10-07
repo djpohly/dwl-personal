@@ -199,7 +199,7 @@ static void requeststartdrag(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
 static void setcursor(struct wl_listener *listener, void *data);
-static void setcursorshape(struct wl_listener *listener, void *data);
+void setcursorshape(struct wl_listener *listener, void *data);
 static void setfloating(Client *c, int floating);
 static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
@@ -310,7 +310,7 @@ extern struct wl_listener request_activate;
 static struct wl_listener request_cursor = {.notify = setcursor};
 static struct wl_listener request_set_psel = {.notify = setpsel};
 static struct wl_listener request_set_sel = {.notify = setsel};
-static struct wl_listener request_set_cursor_shape = {.notify = setcursorshape};
+extern struct wl_listener request_set_cursor_shape;
 static struct wl_listener request_start_drag = {.notify = requeststartdrag};
 static struct wl_listener start_drag = {.notify = startdrag};
 static struct wl_listener new_session_lock = {.notify = locksession};
@@ -2255,9 +2255,6 @@ void
 _setup(void)
 {
 	int i;
-
-	cursor_shape_mgr = wlr_cursor_shape_manager_v1_create(dpy, 1);
-	wl_signal_add(&cursor_shape_mgr->events.request_set_shape, &request_set_cursor_shape);
 
 	/*
 	 * Configures a seat, which is a single "seat" at which a user sits and

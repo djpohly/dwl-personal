@@ -246,6 +246,10 @@ fn setup() !void {
     cursor.events.frame.add(&cursor_frame);
     errdefer cursor_frame.link.remove();
 
+    cursor_shape_mgr = try .create(dpy, 1);
+    cursor_shape_mgr.events.request_set_shape.add(&request_set_cursor_shape);
+    errdefer request_set_cursor_shape.link.remove();
+
     _setup();
 }
 
@@ -489,6 +493,7 @@ export var new_xdg_popup = listener(_createpopup);
 export var new_xdg_toplevel = listener(_createnotify);
 export var output_power_mgr_set_mode = listener(powermgrsetmode);
 export var request_activate = listener(urgent);
+export var request_set_cursor_shape = listener(_setcursorshape);
 
 fn WlListener(comptime Fn: type) type {
     const params = @typeInfo(Fn).@"fn".params;
@@ -535,6 +540,8 @@ fn _motionabsolute(l: *wl.Listener(*wlroots.Pointer.event.MotionAbsolute), event
 extern fn motionrelative(*wl.Listener(*wlroots.Pointer.event.Motion), *wlroots.Pointer.event.Motion) void;
 fn _motionrelative(l: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void { motionrelative(l, event); }
 extern fn printstatus() void;
+extern fn setcursorshape(*wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), *wlroots.CursorShapeManagerV1.event.RequestSetShape) void;
+fn _setcursorshape(l: *wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), event: *wlroots.CursorShapeManagerV1.event.RequestSetShape) void { setcursorshape(l, event); }
 extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
 fn _updatemons(l: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(l, event); }
