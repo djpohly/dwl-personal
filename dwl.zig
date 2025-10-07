@@ -239,6 +239,8 @@ fn setup() !void {
     errdefer cursor_motion.link.remove();
     cursor.events.motion_absolute.add(&cursor_motion_absolute);
     errdefer cursor_motion_absolute.link.remove();
+    cursor.events.button.add(&cursor_button);
+    errdefer cursor_button.link.remove();
 
     _setup();
 }
@@ -467,6 +469,7 @@ extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
 export var cursor_motion = listener(_motionrelative);
+export var cursor_button = listener(_buttonpress);
 export var cursor_motion_absolute = listener(_motionabsolute);
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);
@@ -494,6 +497,8 @@ inline fn listener(handler: anytype) WlListener(@TypeOf(handler)) {
     return .init(handler);
 }
 
+extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
+fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
 extern fn cleanup() void;
 extern fn client_is_x11(c: *C.Client) c_int;

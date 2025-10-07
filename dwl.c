@@ -129,7 +129,7 @@ static void arrangelayer(Monitor *m, struct wl_list *list,
 		struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
 static void axisnotify(struct wl_listener *listener, void *data);
-static void buttonpress(struct wl_listener *listener, void *data);
+void buttonpress(struct wl_listener *listener, void *data);
 static void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
 void cleanup(void);
@@ -287,7 +287,7 @@ extern Monitor *selmon;
 
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};
-static struct wl_listener cursor_button = {.notify = buttonpress};
+extern struct wl_listener cursor_button;
 static struct wl_listener cursor_frame = {.notify = cursorframe};
 extern struct wl_listener cursor_motion;
 extern struct wl_listener cursor_motion_absolute;
@@ -2256,7 +2256,6 @@ _setup(void)
 {
 	int i;
 
-	wl_signal_add(&cursor->events.button, &cursor_button);
 	wl_signal_add(&cursor->events.axis, &cursor_axis);
 	wl_signal_add(&cursor->events.frame, &cursor_frame);
 
