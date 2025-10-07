@@ -432,16 +432,16 @@ fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
     }
 }
 
-export var activation: *wlroots.XdgActivationV1 = undefined;
+var activation: *wlroots.XdgActivationV1 = undefined;
 export var active_constraint: ?*wlroots.PointerConstraintV1 = null;
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
 export var clients: wl.list.Head(C.Client, .link) = undefined;
-export var compositor: *wlroots.Compositor = undefined;
+var compositor: *wlroots.Compositor = undefined;
 export var cur_lock: ?*wlroots.SessionLockV1 = null;
 export var cursor: *wlroots.Cursor = undefined;
 export var cursor_mgr: *wlroots.XcursorManager = undefined;
-export var cursor_shape_mgr: *wlroots.CursorShapeManagerV1 = undefined;
+var cursor_shape_mgr: *wlroots.CursorShapeManagerV1 = undefined;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
 export var drw: *wlroots.Renderer = undefined;
@@ -453,33 +453,33 @@ export var grabcy: c_int = 0;
 export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
 export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
 export var kb_group: *wlroots.KeyboardGroup = undefined;
-export var layer_shell: *wlroots.LayerShellV1 = undefined;
+var layer_shell: *wlroots.LayerShellV1 = undefined;
 export var locked_bg: *wlroots.SceneRect = undefined;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
 export var output_mgr: *wlroots.OutputManagerV1 = undefined;
 export var pointer_constraints: *wlroots.PointerConstraintsV1 = undefined;
-export var power_mgr: *wlroots.OutputPowerManagerV1 = undefined;
+var power_mgr: *wlroots.OutputPowerManagerV1 = undefined;
 export var relative_pointer_mgr: *wlroots.RelativePointerManagerV1 = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
 export var seat: *wlroots.Seat = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
-export var session_lock_mgr: *wlroots.SessionLockManagerV1 = undefined;
+var session_lock_mgr: *wlroots.SessionLockManagerV1 = undefined;
 export var virtual_keyboard_mgr: *wlroots.VirtualKeyboardManagerV1 = undefined;
 export var virtual_pointer_mgr: *wlroots.VirtualPointerManagerV1 = undefined;
-export var xdg_decoration_mgr: *wlroots.XdgDecorationManagerV1 = undefined;
-export var xdg_shell: *wlroots.XdgShell = undefined;
+var xdg_decoration_mgr: *wlroots.XdgDecorationManagerV1 = undefined;
+var xdg_shell: *wlroots.XdgShell = undefined;
 
 // TODO better way to represent layers?  EnumFieldStruct?  EnumArray?
 extern var layers: [std.enums.values(Layer).len]*wlroots.SceneTree;
 
 // Signal handlers
 export var cursor_axis = listener(_axisnotify);
+export var cursor_button = listener(_buttonpress);
 export var cursor_frame = listener(_cursorframe);
 export var cursor_motion = listener(_motionrelative);
-export var cursor_button = listener(_buttonpress);
 export var cursor_motion_absolute = listener(_motionabsolute);
 export var gpu_reset = listener(gpureset);
 export var layout_change = listener(_updatemons);

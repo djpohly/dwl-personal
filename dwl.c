@@ -247,20 +247,15 @@ extern struct wlr_scene_tree *drag_icon;
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
 extern struct wlr_renderer *drw;
 extern struct wlr_allocator *alloc;
-extern struct wlr_compositor *compositor;
 extern struct wlr_session *session;
 
-extern struct wlr_xdg_shell *xdg_shell;
-extern struct wlr_xdg_decoration_manager_v1 *xdg_decoration_mgr;
 extern struct wl_list clients; /* tiling order */
 extern struct wl_list fstack;  /* focus order */
 extern struct wlr_idle_notifier_v1 *idle_notifier;
 extern struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
-extern struct wlr_layer_shell_v1 *layer_shell;
 extern struct wlr_output_manager_v1 *output_mgr;
 extern struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
 extern struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
-extern struct wlr_cursor_shape_manager_v1 *cursor_shape_mgr;
 
 extern struct wlr_pointer_constraints_v1 *pointer_constraints;
 extern struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
@@ -270,7 +265,6 @@ extern struct wlr_cursor *cursor;
 extern struct wlr_xcursor_manager *cursor_mgr;
 
 extern struct wlr_scene_rect *root_bg;
-extern struct wlr_session_lock_manager_v1 *session_lock_mgr;
 extern struct wlr_scene_rect *locked_bg;
 extern struct wlr_session_lock_v1 *cur_lock;
 
