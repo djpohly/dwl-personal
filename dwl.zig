@@ -2,6 +2,7 @@ const build_options = @import("build_options");
 const std = @import("std");
 const wlroots = @import("wlroots");
 const wayland = @import("wayland");
+const xkb = @import("xkbcommon");
 const wl = wayland.server.wl;
 const flags = @import("flags");
 const C = @import("C");
@@ -58,6 +59,19 @@ const Client = extern struct {
         if (geom.y + geom.height <= bbox.y)
             geom.y = bbox.y;
     }
+};
+
+const KeyboardGroup = extern struct {
+    wlr_group: *wlroots.KeyboardGroup,
+
+    nsyms: c_int,
+    keysyms: [*]const xkb.Keysym,  // invalid if nsyms == 0
+    mods: u32,  // invalid if nsyms == 0
+    key_repeat_source: *wl.EventSource,
+
+    modifiers: wl.Listener(*wlroots.Keyboard),
+    key: wl.Listener(*wlroots.Keyboard.event.Key),
+    destroy: wl.Listener(*wlroots.InputDevice),
 };
 
 export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
@@ -330,9 +344,7 @@ fn setup() !void {
     errdefer Listeners.start_drag.link.remove();
 
     kb_group = createkeyboardgroup();
-    comptime assert(@TypeOf(kb_group.destroy) == C.wl_listener); // remove @ptrCast
-    const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&kb_group.destroy);
-    destroy.link.init();
+    kb_group.destroy.link.init();
 
     output_mgr = try .create(dpy);
     output_mgr.events.apply.add(&Listeners.output_mgr_apply);
@@ -383,18 +395,14 @@ fn virtualkeyboard(_: *wl.Listener(*wlroots.VirtualKeyboardV1), kb: *wlroots.Vir
     // virtual keyboards shouldn't share keyboard group
     const group = createkeyboardgroup();
     // Set the keymap to match the group keymap
-    comptime assert(@TypeOf(group.wlr_group) == ?*C.struct_wlr_keyboard_group_58); // remove @ptrCast
-    const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(group.wlr_group));
-    _ = kb.keyboard.setKeymap(wlr_group.keyboard.keymap);
+    _ = kb.keyboard.setKeymap(group.wlr_group.keyboard.keymap);
 
-    comptime assert(@TypeOf(kb_group.destroy) == C.wl_listener); // remove @ptrCast
-    const destroy: *wl.Listener(*wlroots.InputDevice) = @ptrCast(&group.destroy);
-    destroy.setNotify(_destroykeyboardgroup);
-    kb.keyboard.base.events.destroy.add(destroy);
-    errdefer destroy.link.remove();
+    group.destroy.setNotify(_destroykeyboardgroup);
+    kb.keyboard.base.events.destroy.add(&group.destroy);
+    errdefer group.destroy.link.remove();
 
     // Add the new keyboard to the group
-    _ = wlr_group.addKeyboard(&kb.keyboard);
+    _ = group.wlr_group.addKeyboard(&kb.keyboard);
 }
 
 extern fn destroykeyboardgroup(listener: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevice) void;
@@ -594,7 +602,7 @@ export var grabcx: c_int = 0;
 export var grabcy: c_int = 0;
 export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
 export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
-export var kb_group: *C.KeyboardGroup = undefined;
+export var kb_group: *KeyboardGroup = undefined;
 var layer_shell: *wlroots.LayerShellV1 = undefined;
 export var locked_bg: *wlroots.SceneRect = undefined;
 export var mons: wl.list.Head(C.Monitor, .link) = undefined;
@@ -739,11 +747,9 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
     // communiciated to the client. In dwl we always have a cursor, even if
     // there are no pointer devices, so we always include that capability.
     // TODO do we actually require a cursor?
-    comptime assert(@TypeOf(kb_group.wlr_group) == ?*C.struct_wlr_keyboard_group_58);
-    const wlr_group: *wlroots.KeyboardGroup = @alignCast(@ptrCast(kb_group.wlr_group.?));
     seat.setCapabilities(.{
         .pointer = true,
-        .keyboard = (wlr_group.devices.next != &wlr_group.devices),
+        .keyboard = (kb_group.wlr_group.devices.next != &kb_group.wlr_group.devices),
     });
 }
 
@@ -754,7 +760,7 @@ extern fn cleanup() void;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createkeyboard(*wlroots.Keyboard) void;
-extern fn createkeyboardgroup() *C.KeyboardGroup;
+extern fn createkeyboardgroup() *KeyboardGroup;
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
 extern fn createmon(*wl.Listener(*wlroots.Output), *wlroots.Output) void;

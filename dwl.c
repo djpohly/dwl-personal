@@ -116,6 +116,19 @@ typedef struct {
 	struct wl_listener destroy;
 } SessionLock;
 
+typedef struct {
+	struct wlr_keyboard_group *wlr_group;
+
+	int nsyms;
+	const xkb_keysym_t *keysyms; /* invalid if nsyms == 0 */
+	uint32_t mods; /* invalid if nsyms == 0 */
+	struct wl_event_source *key_repeat_source;
+
+	struct wl_listener modifiers;
+	struct wl_listener key;
+	struct wl_listener destroy;
+} KeyboardGroup;
+
 /* function declarations */
 extern void applybounds(Client *c, struct wlr_box *bbox);
 static void applyrules(Client *c);

@@ -86,6 +86,7 @@ pub fn build(b: *std.Build) !void {
     exe_mod.addImport("flags", flags);
     exe_mod.addImport("wlroots", wlroots);
     exe_mod.addImport("wayland", wayland);
+    exe_mod.addImport("xkbcommon", xkbcommon);
     exe_mod.addImport("C", c.createModule());
 
     // C sources
