@@ -358,6 +358,29 @@ fn setup() !void {
     environ.remove("DISPLAY");
 }
 
+fn cleanup() void {
+    cleanuplisteners();
+    dpy.destroyClients();
+    if (child_proc) |*child| {
+        _ = child.kill() catch |err| {
+            std.log.warn("could not kill child process: {t}", .{err});
+        };
+    }
+    cursor_mgr.destroy();
+
+    destroykeyboardgroup(&kb_group.destroy, undefined);
+
+    // If it's not destroyed manually, it will cause a use-after-free of wlr_seat.
+    // Destroy it until it's fixed on the wlroots side
+    backend.destroy();
+
+    dpy.destroy();
+
+    // Destroy after the wayland display (when the monitors are already destroyed)
+    // to avoid destroying them with an invalid scene output.
+    scene.tree.node.destroy();
+}
+
 fn setcursor(_: *wl.Listener(*wlroots.Seat.event.RequestSetCursor), event: *wlroots.Seat.event.RequestSetCursor) void {
     // This event is raised by the seat when a client provides a cursor image.
     // If we're "grabbing" the cursor, don't use the client's image, we will
@@ -756,7 +779,6 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
-extern fn cleanup() void;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createkeyboard(*wlroots.Keyboard) void;

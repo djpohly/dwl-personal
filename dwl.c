@@ -139,7 +139,6 @@ static void arrangelayers(Monitor *m);
 void buttonpress(struct wl_listener *listener, void *data);
 extern void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
-void cleanup(void);
 static void cleanupmon(struct wl_listener *listener, void *data);
 void cleanuplisteners(void);
 static void closemon(Monitor *m);
@@ -515,29 +514,6 @@ checkidleinhibitor(struct wlr_surface *exclude)
 	}
 
 	wlr_idle_notifier_v1_set_inhibited(idle_notifier, inhibited);
-}
-
-void
-cleanup(void)
-{
-	cleanuplisteners();
-	wl_display_destroy_clients(dpy);
-	if (child_pid > 0) {
-		kill(-child_pid, SIGTERM);
-		waitpid(child_pid, NULL, 0);
-	}
-	wlr_xcursor_manager_destroy(cursor_mgr);
-
-	destroykeyboardgroup(&kb_group->destroy, NULL);
-
-	/* If it's not destroyed manually, it will cause a use-after-free of wlr_seat.
-	 * Destroy it until it's fixed on the wlroots side */
-	wlr_backend_destroy(backend);
-
-	wl_display_destroy(dpy);
-	/* Destroy after the wayland display (when the monitors are already destroyed)
-	   to avoid destroying them with an invalid scene output. */
-	wlr_scene_node_destroy(&scene->tree.node);
 }
 
 void
