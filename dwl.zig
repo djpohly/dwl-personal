@@ -381,6 +381,14 @@ fn cleanup() void {
     scene.tree.node.destroy();
 }
 
+fn createkeyboard(keyboard: *wlroots.Keyboard) void {
+    // Set the keymap to match the group keymap
+    _ = keyboard.setKeymap(kb_group.wlr_group.keyboard.keymap);
+
+    // Add the new keyboard to the group
+    _ = kb_group.wlr_group.addKeyboard(keyboard);
+}
+
 fn setcursor(_: *wl.Listener(*wlroots.Seat.event.RequestSetCursor), event: *wlroots.Seat.event.RequestSetCursor) void {
     // This event is raised by the seat when a client provides a cursor image.
     // If we're "grabbing" the cursor, don't use the client's image, we will
@@ -781,7 +789,6 @@ fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
 extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
 fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
-extern fn createkeyboard(*wlroots.Keyboard) void;
 extern fn createkeyboardgroup() *KeyboardGroup;
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }

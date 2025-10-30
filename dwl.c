@@ -146,7 +146,6 @@ static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
 void createdecoration(struct wl_listener *listener, void *data);
-void createkeyboard(struct wlr_keyboard *keyboard);
 KeyboardGroup *createkeyboardgroup(void);
 void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
@@ -682,16 +681,6 @@ createdecoration(struct wl_listener *listener, void *data)
 	LISTEN(&deco->events.destroy, &c->destroy_decoration, destroydecoration);
 
 	requestdecorationmode(&c->set_decoration_mode, deco);
-}
-
-void
-createkeyboard(struct wlr_keyboard *keyboard)
-{
-	/* Set the keymap to match the group keymap */
-	wlr_keyboard_set_keymap(keyboard, kb_group->wlr_group->keyboard.keymap);
-
-	/* Add the new keyboard to the group */
-	wlr_keyboard_group_add_keyboard(kb_group->wlr_group, keyboard);
 }
 
 KeyboardGroup *
