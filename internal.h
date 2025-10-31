@@ -5,6 +5,8 @@
 #include <wlr/types/wlr_session_lock_v1.h>
 #include <xkbcommon/xkbcommon.h>
 
+enum ClientType { XDGShell, LayerShell }; /* client types */
+
 typedef union {
 	int i;
 	uint32_t ui;
@@ -22,7 +24,7 @@ typedef struct {
 typedef struct Monitor Monitor;
 typedef struct {
 	/* Must keep this field first */
-	unsigned int type; /* XDGShell or X11* */
+	unsigned int type; /* XDGShell */
 
 	Monitor *mon;
 	struct wlr_scene_tree *scene;

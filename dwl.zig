@@ -784,6 +784,92 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
     });
 }
 
+const XyToNodeResult = union(enum) {
+    none: void,
+    client: struct {
+        c: *C.Client,
+        surface: ?*wlroots.Surface,
+        nx: f64,
+        ny: f64,
+    },
+    layer: struct {
+        l: *C.LayerSurface,
+        surface: ?*wlroots.Surface,
+        nx: f64,
+        ny: f64,
+    },
+};
+
+fn _xytonode(
+    x: f64,
+    y: f64,
+) XyToNodeResult {
+    var nx: f64 = undefined;
+    var ny: f64 = undefined;
+
+    // Search topmost layers first
+    var it = std.mem.reverseIterator(&layers);
+    while (it.next()) |layer| {
+        const node = layer.node.at(x, y, &nx, &ny) orelse continue;
+        const surface = if (node.type == .buffer) wlroots.SceneSurface.tryFromBuffer(wlroots.SceneBuffer.fromNode(node)).?.*.surface else null;
+
+        // Walk the tree to find a node that knows the client
+        var pnode: ?*wlroots.SceneNode = node;
+        while (pnode) |current| {
+            if (current.data) |client| {
+                return switch (@as(*C.Client, @alignCast(@ptrCast(client))).type) {
+                    C.LayerShell => .{ .layer = .{
+                        .l = @alignCast(@ptrCast(client)),
+                        .surface = surface,
+                        .nx = nx,
+                        .ny = ny,
+                    }},
+                    else => .{ .client = .{
+                        .c = @alignCast(@ptrCast(client)),
+                        .surface = surface,
+                        .nx = nx,
+                        .ny = ny,
+                    }},
+                };
+            }
+            pnode = if (current.parent) |p| &p.node else null;
+        }
+    }
+    return .none;
+}
+
+export fn xytonode(
+    x: f64,
+    y: f64,
+    psurface: ?*?*wlroots.Surface,
+    pc: ?*?*C.Client,
+    pl: ?*?*C.LayerSurface,
+    nx: ?*f64,
+    ny: ?*f64,
+) void {
+    switch (_xytonode(x, y)) {
+        .none => {
+            if (psurface) |p| p.* = null;
+            if (pc) |p| p.* = null;
+            if (pl) |p| p.* = null;
+        },
+        .client => |result| {
+            if (psurface) |p| p.* = result.surface;
+            if (pc) |p| p.* = result.c;
+            if (pl) |p| p.* = null;
+            if (nx) |p| p.* = result.nx;
+            if (ny) |p| p.* = result.ny;
+        },
+        .layer => |result| {
+            if (psurface) |p| p.* = result.surface;
+            if (pc) |p| p.* = null;
+            if (pl) |p| p.* = result.l;
+            if (nx) |p| p.* = result.nx;
+            if (ny) |p| p.* = result.ny;
+        },
+    }
+}
+
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
