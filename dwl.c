@@ -2233,17 +2233,6 @@ view(const Arg *arg)
 }
 
 void
-virtualpointer(struct wl_listener *listener, void *data)
-{
-	struct wlr_virtual_pointer_v1_new_pointer_event *event = data;
-	struct wlr_input_device *device = &event->new_pointer->pointer.base;
-
-	wlr_cursor_attach_input_device(cursor, device);
-	if (event->suggested_output)
-		wlr_cursor_map_input_to_output(cursor, device, event->suggested_output);
-}
-
-void
 warpcursor(void) {
 	Client *c = focustop(selmon);
 	if (cursor_warp && c && !wlr_box_contains_point(&c->geom, cursor->x, cursor->y))
