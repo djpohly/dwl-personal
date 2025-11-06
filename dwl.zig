@@ -381,6 +381,26 @@ fn cleanup() void {
     scene.tree.node.destroy();
 }
 
+export fn quit(_: ?*C.Arg) void {
+    dpy.terminate();
+}
+
+fn _spawn(argv: [*:null]const ?[*:0]const u8) !void {
+    if (try posix.fork() == 0) {
+        try posix.dup2(posix.STDERR_FILENO, posix.STDOUT_FILENO);
+        _ = try posix.setsid();
+        posix.execvpeZ(argv[0].?, argv, std.c.environ) catch {
+            die("dwl: execvp %s failed:", argv[0]);
+        };
+    }
+}
+
+export fn spawn(arg: *C.Arg) void {
+    _spawn(@alignCast(@ptrCast(arg.v))) catch |err| {
+        std.log.warn("error {t} in spawn", .{err});
+    };
+}
+
 fn createkeyboard(keyboard: *wlroots.Keyboard) void {
     // Set the keymap to match the group keymap
     _ = keyboard.setKeymap(kb_group.wlr_group.keyboard.keymap);
@@ -661,8 +681,8 @@ const Listeners = struct {
     pub export var cursor_axis: wl.Listener(*wlroots.Pointer.event.Axis) = .init(axisnotify);
     pub export var cursor_button: wl.Listener(*wlroots.Pointer.event.Button) = .init(_buttonpress);
     pub export var cursor_frame: wl.Listener(*wlroots.Cursor) = .init(cursorframe);
-    pub export var cursor_motion: wl.Listener(*wlroots.Pointer.event.Motion) = .init(_motionrelative);
-    pub export var cursor_motion_absolute: wl.Listener(*wlroots.Pointer.event.MotionAbsolute) = .init(_motionabsolute);
+    pub export var cursor_motion: wl.Listener(*wlroots.Pointer.event.Motion) = .init(motionrelative);
+    pub export var cursor_motion_absolute: wl.Listener(*wlroots.Pointer.event.MotionAbsolute) = .init(motionabsolute);
     pub export var gpu_reset: wl.Listener(void) = .init(gpureset);
     pub export var layout_change: wl.Listener(*wlroots.OutputLayout) = .init(_updatemons);
     pub export var new_idle_inhibitor: wl.Listener(*wlroots.IdleInhibitorV1) = .init(createidleinhibitor);
@@ -722,6 +742,30 @@ fn destroydragicon(listener: *wl.Listener(*wlroots.Drag.Icon), _: *wlroots.Drag.
     std.c.free(listener);
 }
 extern fn motionnotify(time: u32, device: ?*wlroots.InputDevice, sx: f64, sy: f64, sx_unaccel: f64, sy_unaccel: f64) void;
+
+fn motionabsolute(_: *wl.Listener(*wlroots.Pointer.event.MotionAbsolute), event: *wlroots.Pointer.event.MotionAbsolute) void {
+    if (event.time_msec == 0) {
+        cursor.warpAbsolute(event.device, event.x, event.y);
+    }
+    var lx: f64 = undefined;
+    var ly: f64 = undefined;
+    cursor.absoluteToLayoutCoords(event.device, event.x, event.y, &lx, &ly);
+    const dx = lx - cursor.x;
+    const dy = ly - cursor.y;
+    motionnotify(event.time_msec, event.device, dx, dy, dx, dy);
+}
+
+fn motionrelative(_: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void {
+    // This event is forwarded by the cursor when a pointer emits a _relative_
+    // pointer motion event (i.e. a delta)
+
+    // The cursor doesn't move unless we tell it to. The cursor automatically
+    // handles constraining the motion to the output layout, as well as any
+    // special configuration applied for the specific input device which
+    // generated the event. You can pass NULL for the device if you want to move
+    // the cursor around without any input.
+    motionnotify(event.time_msec, event.device, event.delta_x, event.delta_y, event.unaccel_dx, event.unaccel_dy);
+}
 
 fn setsel(_: *wl.Listener(*wlroots.Seat.event.RequestSetSelection), event: *wlroots.Seat.event.RequestSetSelection) void {
     // This event is raised by the seat when a client wants to set the selection,
@@ -893,10 +937,6 @@ extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
 extern fn handlesig(signo: c_int) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
 fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }
-extern fn motionabsolute(*wl.Listener(*wlroots.Pointer.event.MotionAbsolute), *wlroots.Pointer.event.MotionAbsolute) void;
-fn _motionabsolute(l: *wl.Listener(*wlroots.Pointer.event.MotionAbsolute), event: *wlroots.Pointer.event.MotionAbsolute) void { motionabsolute(l, event); }
-extern fn motionrelative(*wl.Listener(*wlroots.Pointer.event.Motion), *wlroots.Pointer.event.Motion) void;
-fn _motionrelative(l: *wl.Listener(*wlroots.Pointer.event.Motion), event: *wlroots.Pointer.event.Motion) void { motionrelative(l, event); }
 extern fn outputmgrapply(*wl.Listener(*wlroots.OutputConfigurationV1), *wlroots.OutputConfigurationV1) void;
 fn _outputmgrapply(l: *wl.Listener(*wlroots.OutputConfigurationV1), output_config: *wlroots.OutputConfigurationV1) void { outputmgrapply(l, output_config); }
 extern fn outputmgrtest(*wl.Listener(*wlroots.OutputConfigurationV1), *wlroots.OutputConfigurationV1) void;

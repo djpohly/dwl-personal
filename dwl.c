@@ -181,10 +181,8 @@ static void mapnotify(struct wl_listener *listener, void *data);
 static void maximizenotify(struct wl_listener *listener, void *data);
 static void monocle(Monitor *m);
 static void movestack(const Arg *arg);
-void motionabsolute(struct wl_listener *listener, void *data);
 void motionnotify(uint32_t time, struct wlr_input_device *device, double sx,
 		double sy, double sx_unaccel, double sy_unaccel);
-void motionrelative(struct wl_listener *listener, void *data);
 static void moveresize(const Arg *arg);
 void outputmgrapply(struct wl_listener *listener, void *data);
 static void outputmgrapplyortest(struct wlr_output_configuration_v1 *config, int test);
@@ -193,7 +191,7 @@ static void pointerfocus(Client *c, struct wlr_surface *surface,
 		double sx, double sy, uint32_t time);
 void printstatus(void);
 static void powermgrsetmode(struct wl_listener *listener, void *data);
-static void quit(const Arg *arg);
+extern void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
@@ -205,7 +203,7 @@ static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
 static void setmon(Client *c, Monitor *m, uint32_t newtags);
 void setup(void);
-static void spawn(const Arg *arg);
+extern void spawn(const Arg *arg);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
@@ -1512,26 +1510,6 @@ movestack(const Arg *arg)
 }
 
 void
-motionabsolute(struct wl_listener *listener, void *data)
-{
-	/* This event is forwarded by the cursor when a pointer emits an _absolute_
-	 * motion event, from 0..1 on each axis. This happens, for example, when
-	 * wlroots is running under a Wayland window rather than KMS+DRM, and you
-	 * move the mouse over the window. You could enter the window from any edge,
-	 * so we have to warp the mouse there. Also, some hardware emits these events. */
-	struct wlr_pointer_motion_absolute_event *event = data;
-	double lx, ly, dx, dy;
-
-	if (!event->time_msec) /* this is 0 with virtual pointers */
-		wlr_cursor_warp_absolute(cursor, &event->pointer->base, event->x, event->y);
-
-	wlr_cursor_absolute_to_layout_coords(cursor, &event->pointer->base, event->x, event->y, &lx, &ly);
-	dx = lx - cursor->x;
-	dy = ly - cursor->y;
-	motionnotify(event->time_msec, &event->pointer->base, dx, dy, dx, dy);
-}
-
-void
 motionnotify(uint32_t time, struct wlr_input_device *device, double dx, double dy,
 		double dx_unaccel, double dy_unaccel)
 {
@@ -1608,21 +1586,6 @@ motionnotify(uint32_t time, struct wlr_input_device *device, double dx, double d
 		wlr_cursor_set_xcursor(cursor, cursor_mgr, "default");
 
 	pointerfocus(c, surface, sx, sy, time);
-}
-
-void
-motionrelative(struct wl_listener *listener, void *data)
-{
-	/* This event is forwarded by the cursor when a pointer emits a _relative_
-	 * pointer motion event (i.e. a delta) */
-	struct wlr_pointer_motion_event *event = data;
-	/* The cursor doesn't move unless we tell it to. The cursor automatically
-	 * handles constraining the motion to the output layout, as well as any
-	 * special configuration applied for the specific input device which
-	 * generated the event. You can pass NULL for the device if you want to move
-	 * the cursor around without any input. */
-	motionnotify(event->time_msec, &event->pointer->base, event->delta_x, event->delta_y,
-			event->unaccel_dx, event->unaccel_dy);
 }
 
 void
@@ -1815,12 +1778,6 @@ powermgrsetmode(struct wl_listener *listener, void *data)
 }
 
 void
-quit(const Arg *arg)
-{
-	wl_display_terminate(dpy);
-}
-
-void
 rendermon(struct wl_listener *listener, void *data)
 {
 	/* This function is called every time an output is ready to display a frame,
@@ -1998,17 +1955,6 @@ setmon(Client *c, Monitor *m, uint32_t newtags)
 		setfloating(c, c->isfloating);
 	}
 	focusclient(focustop(selmon), 1);
-}
-
-void
-spawn(const Arg *arg)
-{
-	if (fork() == 0) {
-		dup2(STDERR_FILENO, STDOUT_FILENO);
-		setsid();
-		execvp(((char **)arg->v)[0], (char **)arg->v);
-		die("dwl: execvp %s failed:", ((char **)arg->v)[0]);
-	}
 }
 
 void
