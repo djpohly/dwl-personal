@@ -17,6 +17,10 @@ const config = @import("config.zig");
 var environ: std.process.EnvMap = undefined;
 var child_proc: ?std.process.Child = null;
 
+// Allocator to use for allocating objects/listeners
+// c_allocator is compatible with malloc/free
+const global_alloc = std.heap.c_allocator;
+
 const Layer = enum {
     bg,
     bottom,
@@ -725,9 +729,7 @@ fn requeststartdrag(_: *wl.Listener(*wlroots.Seat.event.RequestStartDrag), event
 fn _startdrag(_: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) !void {
     if (drag.icon) |icon| {
         icon.data = &(try drag_icon.createSceneDragIcon(icon)).node;
-        const destroy_listener = try std.heap.c_allocator.create(wl.Listener(*wlroots.Drag.Icon));
-        destroy_listener.* = .init(destroydragicon);
-        icon.events.destroy.add(destroy_listener);
+        try allocListen(*wlroots.Drag.Icon, &icon.events.destroy, destroydragicon);
     }
 }
 
@@ -736,6 +738,12 @@ fn startdrag(listener: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) void {
         std.log.err("Error in startdrag: {t}", .{err});
         return;
     };
+}
+
+fn allocListen(comptime T: type, signal: *wl.Signal(T), handler: wl.Listener(T).NotifyFn) !void {
+    const listener = try global_alloc.create(wl.Listener(T));
+    listener.* = .init(handler);
+    signal.add(listener);
 }
 
 fn destroydragicon(listener: *wl.Listener(*wlroots.Drag.Icon), _: *wlroots.Drag.Icon) void {
