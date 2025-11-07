@@ -722,24 +722,28 @@ fn requeststartdrag(_: *wl.Listener(*wlroots.Seat.event.RequestStartDrag), event
     }
 }
 
-fn startdrag(_: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) void {
+fn _startdrag(_: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) !void {
     if (drag.icon) |icon| {
-        icon.data = &(drag_icon.createSceneDragIcon(icon) catch |err| {
-            std.log.err("Error creating drag icon: {s}", .{@errorName(err)});
-            std.debug.dumpCurrentStackTrace(null);
-            return;
-        }).node;
-        icon.events.destroy.add(&destroy_drag_icon);
+        icon.data = &(try drag_icon.createSceneDragIcon(icon)).node;
+        const destroy_listener = try std.heap.c_allocator.create(wl.Listener(*wlroots.Drag.Icon));
+        destroy_listener.* = .init(destroydragicon);
+        icon.events.destroy.add(destroy_listener);
     }
 }
 
-var destroy_drag_icon: wl.Listener(*wlroots.Drag.Icon) = .init(destroydragicon);
+fn startdrag(listener: *wl.Listener(*wlroots.Drag), drag: *wlroots.Drag) void {
+    _startdrag(listener, drag) catch |err| {
+        std.log.err("Error in startdrag: {t}", .{err});
+        return;
+    };
+}
+
 fn destroydragicon(listener: *wl.Listener(*wlroots.Drag.Icon), _: *wlroots.Drag.Icon) void {
     // Focus enter isn't sent during drag, so refocus the focused node.
     focusclient(focustop(selmon), 1);
     motionnotify(0, null, 0, 0, 0, 0);
     listener.link.remove();
-    std.c.free(listener);
+    std.heap.c_allocator.destroy(listener);
 }
 extern fn motionnotify(time: u32, device: ?*wlroots.InputDevice, sx: f64, sy: f64, sx_unaccel: f64, sy_unaccel: f64) void;
 
