@@ -138,7 +138,11 @@ typedef struct {
 #endif
 	unsigned int bw;
 	uint32_t tags;
-	int isfloating, isurgent, isfullscreen;
+	unsigned int
+		isfloating: 1,
+		isurgent: 1,
+		isfullscreen: 1,
+		skipfocus: 1;
 	uint32_t resize; /* configure serial of a pending resize */
 } Client;
 
@@ -338,6 +342,7 @@ static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglefloating(const Arg *arg);
+static void togglefocusable(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
@@ -1509,14 +1514,14 @@ focusstack(const Arg *arg)
 		wl_list_for_each(c, &sel->link, link) {
 			if (&c->link == &clients)
 				continue; /* wrap past the sentinel node */
-			if (VISIBLEON(c, selmon))
+			if (!c->skipfocus && VISIBLEON(c, selmon))
 				break; /* found it */
 		}
 	} else {
 		wl_list_for_each_reverse(c, &sel->link, link) {
 			if (&c->link == &clients)
 				continue; /* wrap past the sentinel node */
-			if (VISIBLEON(c, selmon))
+			if (!c->skipfocus && VISIBLEON(c, selmon))
 				break; /* found it */
 		}
 	}
@@ -2791,6 +2796,13 @@ togglefloating(const Arg *arg)
 	/* return if fullscreen */
 	if (sel && !sel->isfullscreen)
 		setfloating(sel, !sel->isfloating);
+}
+
+void
+togglefocusable(const Arg *arg)
+{
+	Client *sel = focustop(selmon);
+	sel->skipfocus = !sel->skipfocus;
 }
 
 void

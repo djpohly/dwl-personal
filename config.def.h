@@ -203,6 +203,7 @@ static const Key keys[] = {
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_M,          setlayout,      {.v = &layouts[2]} },
 	{ MODKEY,                    XKB_KEY_l,          setlayout,      {.v = &layouts[3]} },
 	{ MODKEY,                    XKB_KEY_f,          togglefloating, {0} },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_question,   togglefocusable,{0} },
 	{ MODKEY,                    XKB_KEY_0,          view,           {.ui = ~0} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_parenright, tag,            {.ui = ~0} },
 	{ MODKEY,                    XKB_KEY_apostrophe, focusmon,       {.i = WLR_DIRECTION_LEFT} },
