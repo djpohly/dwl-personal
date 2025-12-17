@@ -26,10 +26,10 @@ static int log_level = WLR_ERROR;
 static const Rule rules[] = {
 	/* app_id             title       tags mask     isfloating   monitor   skipfocus */
 	/* examples: */
-	{ "mpv",              NULL,       0,            1,           -1,       0 },
-	{ ".float",           NULL,       0,            1,           -1,       0 },
-	{ ".nofocus",         NULL,       0,            0,           -1,       1 },
-	{ ".pin",             NULL,       ~0,           0,           -1,       0 },
+	{ "mpv",              NULL,       0,            1,           0,        0 },
+	{ ".float",           NULL,       0,            1,           0,        0 },
+	{ ".nofocus",         NULL,       0,            0,           0,        1 },
+	{ ".pin",             NULL,       ~0,           0,           0,        0 },
 };
 
 /* layout(s) */

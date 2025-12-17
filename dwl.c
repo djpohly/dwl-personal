@@ -504,7 +504,8 @@ applyrules(Client *c)
 			c->isfloating |= r->isfloating;
 			c->skipfocus |= r->skipfocus;
 			newtags |= r->tags;
-			i = 0;
+			// One-based so that 0 can stand for "no rule specified"
+			i = 1;
 			wl_list_for_each(m, &mons, link) {
 				if (r->monitor == i++)
 					mon = m;
