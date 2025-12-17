@@ -24,9 +24,12 @@ static int log_level = WLR_ERROR;
 
 /* NOTE: ALWAYS keep a rule declared even if you don't use rules (e.g leave at least one example) */
 static const Rule rules[] = {
-	/* app_id             title       tags mask     isfloating   monitor */
+	/* app_id             title       tags mask     isfloating   monitor   skipfocus */
 	/* examples: */
-	{ "mpv",              NULL,       0,            1,           -1 },
+	{ "mpv",              NULL,       0,            1,           -1,       0 },
+	{ ".float",           NULL,       0,            1,           -1,       0 },
+	{ ".nofocus",         NULL,       0,            0,           -1,       1 },
+	{ ".pin",             NULL,       ~0,           0,           -1,       0 },
 };
 
 /* layout(s) */

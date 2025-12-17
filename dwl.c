@@ -234,6 +234,7 @@ typedef struct {
 	uint32_t tags;
 	int isfloating;
 	int monitor;
+	int skipfocus;
 } Rule;
 
 typedef struct {
@@ -500,7 +501,8 @@ applyrules(Client *c)
 	for (r = rules; r < END(rules); r++) {
 		if ((!r->title || strstr(title, r->title))
 				&& (!r->id || strstr(appid, r->id))) {
-			c->isfloating = r->isfloating;
+			c->isfloating |= r->isfloating;
+			c->skipfocus |= r->skipfocus;
 			newtags |= r->tags;
 			i = 0;
 			wl_list_for_each(m, &mons, link) {
