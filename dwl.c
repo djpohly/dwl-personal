@@ -287,7 +287,7 @@ extern struct wl_listener new_pointer_constraint;
 extern struct wl_listener new_output;
 extern struct wl_listener new_xdg_toplevel;
 extern struct wl_listener new_xdg_popup;
-static struct wl_listener new_xdg_decoration = {.notify = createdecoration};
+extern struct wl_listener new_xdg_decoration;
 extern struct wl_listener new_layer_surface;
 extern struct wl_listener new_session_lock;
 extern struct wl_listener output_mgr_apply;
