@@ -155,7 +155,7 @@ void createpointerconstraint(struct wl_listener *listener, void *data);
 void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
 static void cursorwarptohint(void);
-static void destroydecoration(struct wl_listener *listener, void *data);
+extern void destroydecoration(struct wl_listener *listener, void *data);
 static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
 static void destroylock(SessionLock *lock, int unlocked);
 static void destroylocksurface(struct wl_listener *listener, void *data);
@@ -963,15 +963,6 @@ cursorwarptohint(void)
 		wlr_cursor_warp(cursor, NULL, sx + c->geom.x + c->bw, sy + c->geom.y + c->bw);
 		wlr_seat_pointer_warp(active_constraint->seat, sx, sy);
 	}
-}
-
-void
-destroydecoration(struct wl_listener *listener, void *data)
-{
-	Client *c = wl_container_of(listener, c, destroy_decoration);
-
-	wl_list_remove(&c->destroy_decoration.link);
-	wl_list_remove(&c->set_decoration_mode.link);
 }
 
 void

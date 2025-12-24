@@ -42,6 +42,10 @@ const CursorMode = enum(c_uint) {
 const Client = extern struct {
     c: C.Client,
 
+    pub fn wrap(raw: *C.Client) *Client {
+        return @fieldParentPtr("c", raw);
+    }
+
     pub fn surface(self: Client) *wlroots.Surface {
         const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
         return xdg.surface;
@@ -839,6 +843,16 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
         .keyboard = (kb_group.wlr_group.devices.next != &kb_group.wlr_group.devices),
     });
 }
+
+export fn destroydecoration(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
+    const raw: *C.wl_listener = @ptrCast(listener);
+    const client: *Client = .wrap(@fieldParentPtr("destroy_decoration", raw));
+    const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&client.c.destroy_decoration);
+    destroy_listener.link.remove();
+    const set_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&client.c.set_decoration_mode);
+    set_listener.link.remove();
+}
+
 
 const XyToNodeResult = union(enum) {
     none: void,
