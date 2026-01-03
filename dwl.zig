@@ -195,7 +195,7 @@ fn setup() !void {
     if (drw.getTextureFormats(@intFromEnum(wlroots.BufferCap.dmabuf))) |_| {
         _ = try wlroots.Drm.create(dpy, drw);
 
-        scene.setLinuxDmabufV1(try wlroots.LinuxDmabufV1.createWithRenderer(dpy, 5, drw));
+        scene.setLinuxDmabufV1(try .createWithRenderer(dpy, 5, drw));
     }
 
     const drm_fd = drw.getDrmFd();
@@ -234,7 +234,7 @@ fn setup() !void {
     activation.events.request_activate.add(&Listeners.request_activate);
     errdefer Listeners.request_activate.link.remove();
 
-    wlroots.Scene.setGammaControlManagerV1(scene, try .create(dpy));
+    scene.setGammaControlManagerV1(try .create(dpy));
 
     power_mgr = try .create(dpy);
     power_mgr.events.set_mode.add(&Listeners.output_power_mgr_set_mode);
@@ -549,7 +549,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
 
     // Start the backend. This will enumerate outputs and inputs, become the DRM
     // master, etc
-    try wlroots.Backend.start(backend);
+    try backend.start();
 
     // At this point the outputs are initialized, choose initial selmon based on
     // cursor position, and set default cursor image
