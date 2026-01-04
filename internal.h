@@ -3,6 +3,7 @@
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_session_lock_v1.h>
+#include <wlr/types/wlr_server_decoration.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xdg-shell-protocol.h>
 

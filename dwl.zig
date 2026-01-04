@@ -13,6 +13,7 @@ const SA = posix.SA;
 const O = std.os.linux.O;
 const assert = std.debug.assert;
 const config = @import("config.zig");
+const XdgServerDecorationManager = @import("XdgServerDecorationManager.zig");
 
 var environ: std.process.EnvMap = undefined;
 var child_proc: ?std.process.Child = null;
@@ -298,7 +299,8 @@ fn setup() !void {
     errdefer Listeners.new_session_lock.link.remove();
 
     // Use decoration protocols to negotiate server-side decorations.
-    // (KDE server decoration has no zig-wlroots binding)
+    const server_decoration_mgr: XdgServerDecorationManager = try .create(dpy);
+    server_decoration_mgr.setDefaultMode(.server);
     xdg_decoration_mgr = try .create(dpy);
     xdg_decoration_mgr.events.new_toplevel_decoration.add(&Listeners.new_xdg_decoration);
     errdefer Listeners.new_xdg_decoration.link.remove();
