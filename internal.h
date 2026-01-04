@@ -4,6 +4,7 @@
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_session_lock_v1.h>
 #include <xkbcommon/xkbcommon.h>
+#include <xdg-shell-protocol.h>
 
 enum ClientType { XDGShell, LayerShell }; /* client types */
 

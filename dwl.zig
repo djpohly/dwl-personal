@@ -52,6 +52,12 @@ const Client = extern struct {
     }
     export fn client_surface(c: *C.Client) *wlroots.Surface { return Client.wrap(c).surface(); }
 
+    fn toplevel(self: Client) *wlroots.XdgToplevel {
+        const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
+        assert(xdg.role == .toplevel);
+        return xdg.role_data.toplevel.?;
+    }
+
     pub fn setBorderColor(self: *Client, color: [4]f32) void {
         for (0..4) |i| {
             const rect: *wlroots.SceneRect = @ptrCast(self.c.border[i]);
@@ -60,7 +66,7 @@ const Client = extern struct {
     }
     export fn client_set_border_color(c: *C.Client, color: *const [4]f32) void { Client.wrap(c).setBorderColor(color.*); }
 
-    pub fn applyBounds(self: *Client, bbox: wlroots.Box) void {
+    fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
         const min_dim = 1 + 2 * self.c.bw;
         const geom = &self.c.geom;
@@ -77,6 +83,19 @@ const Client = extern struct {
             geom.y = bbox.y;
     }
     export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void { Client.wrap(c).applyBounds(bbox.*); }
+
+    fn setBounds(self: *Client, width: u31, height: u31) u32 {
+        const c = &self.c;
+        if (self.surface().resource.getVersion() < C.XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION or
+            (c.bounds.width == width and c.bounds.height == height))
+        {
+            return 0;
+        }
+        c.bounds.width = width;
+        c.bounds.height = height;
+        return self.toplevel().setBounds(width, height);
+    }
+    export fn client_set_bounds(c: *C.Client, width: i32, height: i32) u32 { return Client.wrap(c).setBounds(@intCast(width), @intCast(height)); }
 };
 
 const KeyboardGroup = extern struct {
