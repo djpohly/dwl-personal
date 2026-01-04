@@ -164,6 +164,13 @@ const Client = extern struct {
     }
 };
 
+fn client_set_scale(s: *wlroots.Surface, scale: f32) void {
+    wlroots.FractionalScaleManagerV1.notifyScale(s, scale);
+    s.setPreferredBufferScale(@intFromFloat(@ceil(scale)));
+}
+fn c_client_set_scale(s: *C.wlr_surface, scale: f32) callconv(.c) void { client_set_scale(@ptrCast(s), scale); }
+comptime { @export(&c_client_set_scale, .{ .name = "client_set_scale" }); }
+
 const KeyboardGroup = extern struct {
     wlr_group: *wlroots.KeyboardGroup,
 

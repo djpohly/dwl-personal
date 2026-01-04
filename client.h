@@ -106,12 +106,7 @@ extern void client_set_border_color(Client *c, const float color[4]);
 
 extern void client_set_fullscreen(Client *c, int fullscreen);
 
-static inline void
-client_set_scale(struct wlr_surface *s, float scale)
-{
-	wlr_fractional_scale_v1_notify_scale(s, scale);
-	wlr_surface_set_preferred_buffer_scale(s, (int32_t)ceilf(scale));
-}
+extern void client_set_scale(struct wlr_surface *s, float scale);
 
 static inline uint32_t
 client_set_size(Client *c, uint32_t width, uint32_t height)
