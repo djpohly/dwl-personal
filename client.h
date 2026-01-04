@@ -146,12 +146,7 @@ client_set_tiled(Client *c, uint32_t edges)
 	}
 }
 
-static inline void
-client_set_suspended(Client *c, int suspended)
-{
-
-	wlr_xdg_toplevel_set_suspended(c->surface.xdg->toplevel, suspended);
-}
+extern void client_set_suspended(Client *c, int suspended);
 
 static inline int
 client_wants_focus(Client *c)
@@ -159,8 +154,4 @@ client_wants_focus(Client *c)
 	return 0;
 }
 
-static inline int
-client_wants_fullscreen(Client *c)
-{
-	return c->surface.xdg->toplevel->requested.fullscreen;
-}
+extern int client_wants_fullscreen(Client *c);

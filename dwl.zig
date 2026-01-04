@@ -143,6 +143,16 @@ const Client = extern struct {
         _ = self.toplevel().setFullscreen(fullscreen);
     }
     export fn client_set_fullscreen(c: *C.Client, fullscreen: c_int) void { Client.wrap(c).setFullscreen(fullscreen != 0); }
+
+    fn setSuspended(self: Client, suspended: bool) void {
+        _ = self.toplevel().setSuspended(suspended);
+    }
+    export fn client_set_suspended(c: *C.Client, suspended: c_int) void { Client.wrap(c).setSuspended(suspended != 0); }
+
+    fn wantsFullscreen(self: Client) bool {
+        return self.toplevel().requested.fullscreen;
+    }
+    export fn client_wants_fullscreen(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).wantsFullscreen()); }
 };
 
 const KeyboardGroup = extern struct {
