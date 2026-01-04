@@ -25,11 +25,7 @@ extern const char *client_get_appid(Client *c);
 
 extern void client_get_clip(Client *c, struct wlr_box *clip);
 
-static inline void
-client_get_geometry(Client *c, struct wlr_box *geom)
-{
-	*geom = c->surface.xdg->geometry;
-}
+extern void client_get_geometry(Client *c, struct wlr_box *geom);
 
 static inline Client *
 client_get_parent(Client *c)
@@ -48,11 +44,7 @@ client_has_children(Client *c)
 	return wl_list_length(&c->surface.xdg->link) > 1;
 }
 
-static inline const char *
-client_get_title(Client *c)
-{
-	return c->surface.xdg->toplevel->title ? c->surface.xdg->toplevel->title : "broken";
-}
+extern const char *client_get_title(Client *c);
 
 static inline int
 client_is_float_type(Client *c)
@@ -121,19 +113,11 @@ client_notify_enter(struct wlr_surface *s, struct wlr_keyboard *kb)
 		wlr_seat_keyboard_notify_enter(seat, s, NULL, 0, NULL);
 }
 
-static inline void
-client_send_close(Client *c)
-{
-	wlr_xdg_toplevel_send_close(c->surface.xdg->toplevel);
-}
+extern void client_send_close(Client *c);
 
 extern void client_set_border_color(Client *c, const float color[4]);
 
-static inline void
-client_set_fullscreen(Client *c, int fullscreen)
-{
-	wlr_xdg_toplevel_set_fullscreen(c->surface.xdg->toplevel, fullscreen);
-}
+extern void client_set_fullscreen(Client *c, int fullscreen);
 
 static inline void
 client_set_scale(struct wlr_surface *s, float scale)

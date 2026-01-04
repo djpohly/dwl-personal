@@ -109,6 +109,14 @@ const Client = extern struct {
     }
     export fn client_get_appid(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getAppIdZ(); }
 
+    fn getTitle(self: *const Client) [:0]const u8 {
+        return std.mem.span(self.getTitleZ());
+    }
+    fn getTitleZ(self: *const Client) [*:0]const u8 {
+        return self.toplevel().title orelse "broken";
+    }
+    export fn client_get_title(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getTitleZ(); }
+
     fn getClip(self: *const Client) wlroots.Box {
         const xdg = self.xdgSurface();
         const bw: c_int = @intCast(self.c.bw);
@@ -120,6 +128,21 @@ const Client = extern struct {
         };
     }
     export fn client_get_clip(c: *C.Client, clip: *wlroots.Box) void { clip.* = Client.wrap(c).getClip(); }
+
+    fn getGeometry(self: Client) wlroots.Box {
+        return self.xdgSurface().geometry;
+    }
+    export fn client_get_geometry(c: *C.Client, geom: *wlroots.Box) void { geom.* = Client.wrap(c).getGeometry(); }
+
+    fn sendClose(self: Client) void {
+        self.toplevel().sendClose();
+    }
+    export fn client_send_close(c: *C.Client) void { Client.wrap(c).sendClose(); }
+
+    fn setFullscreen(self: Client, fullscreen: bool) void {
+        _ = self.toplevel().setFullscreen(fullscreen);
+    }
+    export fn client_set_fullscreen(c: *C.Client, fullscreen: c_int) void { Client.wrap(c).setFullscreen(fullscreen != 0); }
 };
 
 const KeyboardGroup = extern struct {
