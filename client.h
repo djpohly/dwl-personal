@@ -14,57 +14,7 @@ client_is_x11(Client *c)
 
 extern struct wlr_surface *client_surface(Client *c);
 
-int
-toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl)
-{
-	struct wlr_xdg_surface *xdg_surface, *tmp_xdg_surface;
-	struct wlr_surface *root_surface;
-	struct wlr_layer_surface_v1 *layer_surface;
-	Client *c = NULL;
-	LayerSurface *l = NULL;
-	int type = -1;
-
-	if (!s)
-		return -1;
-	root_surface = wlr_surface_get_root_surface(s);
-
-	if ((layer_surface = wlr_layer_surface_v1_try_from_wlr_surface(root_surface))) {
-		l = layer_surface->data;
-		type = LayerShell;
-		goto end;
-	}
-
-	xdg_surface = wlr_xdg_surface_try_from_wlr_surface(root_surface);
-	while (xdg_surface) {
-		tmp_xdg_surface = NULL;
-		switch (xdg_surface->role) {
-		case WLR_XDG_SURFACE_ROLE_POPUP:
-			if (!xdg_surface->popup || !xdg_surface->popup->parent)
-				return -1;
-
-			tmp_xdg_surface = wlr_xdg_surface_try_from_wlr_surface(xdg_surface->popup->parent);
-
-			if (!tmp_xdg_surface)
-				return toplevel_from_wlr_surface(xdg_surface->popup->parent, pc, pl);
-
-			xdg_surface = tmp_xdg_surface;
-			break;
-		case WLR_XDG_SURFACE_ROLE_TOPLEVEL:
-			c = xdg_surface->data;
-			type = c->type;
-			goto end;
-		case WLR_XDG_SURFACE_ROLE_NONE:
-			return -1;
-		}
-	}
-
-end:
-	if (pl)
-		*pl = l;
-	if (pc)
-		*pc = c;
-	return type;
-}
+extern int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl);
 
 /* The others */
 static inline void

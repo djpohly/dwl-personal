@@ -83,8 +83,7 @@ const KeyboardGroup = extern struct {
 };
 
 export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
-    const client: *Client = @fieldParentPtr("c", c);
-    client.applyBounds(bbox.*);
+    Client.wrap(c).applyBounds(bbox.*);
 }
 
 export fn client_surface(c: *C.Client) *wlroots.Surface {
@@ -584,20 +583,65 @@ fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode),
     }
 }
 
+const ToplevelResult = union(enum) {
+    none: void,
+    client: *Client,
+    layer: *C.LayerSurface,
+};
+
+fn toplevel_from_wlr_surface(s: ?*wlroots.Surface) ToplevelResult {
+    const surface = s orelse return .none;
+    const root_surface = surface.getRootSurface();
+    if (wlroots.LayerSurfaceV1.tryFromWlrSurface(root_surface)) |layer_surface| {
+        return .{ .layer = @alignCast(@ptrCast(layer_surface.data)) };
+    }
+
+    var cur_surface = wlroots.XdgSurface.tryFromWlrSurface(root_surface);
+    while (cur_surface) |xdg_surface| {
+        switch (xdg_surface.role) {
+            .none => return .none,
+            .toplevel => return .{ .client = @alignCast(@ptrCast(xdg_surface.data)) },
+            .popup => {
+                const popup = xdg_surface.role_data.popup orelse return .none;
+                const parent = popup.parent orelse return .none;
+                if (wlroots.XdgSurface.tryFromWlrSurface(parent)) |parent_surface| {
+                    cur_surface = parent_surface;
+                } else {
+                    return toplevel_from_wlr_surface(parent);
+                }
+            },
+        }
+    }
+    return .none;
+}
+
+fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) callconv(.c) c_int {
+    const c, const l, const t: c_int = switch (toplevel_from_wlr_surface(s)) {
+        .none => .{ null, null, -1 },
+        .client => |c| .{ c, null, @intCast(C.XDGShell) },
+        .layer => |l| .{ null, l, @intCast(C.LayerShell) },
+    };
+    if (pc) |p| p.* = if (c) |client| &client.c else null;
+    if (pl) |p| p.* = l;
+    return t;
+}
+comptime { @export(&c_toplevel_from_wlr_surface, .{ .name = "toplevel_from_wlr_surface" }); }
+
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
-    var maybe_c: ?*C.Client = null;
-    _ = toplevel_from_wlr_surface(event.surface, &maybe_c, null);
-    if (maybe_c) |c| {
-        if (c == focustop(selmon)) {
-            return;
-        }
+    switch (toplevel_from_wlr_surface(event.surface)) {
+        .client => |c| {
+            if (&c.c == focustop(selmon)) {
+                return;
+            }
 
-        c.isurgent = 1;
-        printstatus();
+            c.c.isurgent = 1;
+            printstatus();
 
-        if (client_surface(c).mapped) {
-            client_set_border_color(c, config.urgentcolor);
-        }
+            if (c.surface().mapped) {
+                client_set_border_color(&c.c, config.urgentcolor);
+            }
+        },
+        else => return,
     }
 }
 
@@ -970,6 +1014,5 @@ fn _outputmgrtest(l: *wl.Listener(*wlroots.OutputConfigurationV1), config_head: 
 extern fn printstatus() void;
 extern fn setcursorshape(*wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), *wlroots.CursorShapeManagerV1.event.RequestSetShape) void;
 fn _setcursorshape(l: *wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), event: *wlroots.CursorShapeManagerV1.event.RequestSetShape) void { setcursorshape(l, event); }
-extern fn toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) c_int;
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
 fn _updatemons(l: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(l, event); }
