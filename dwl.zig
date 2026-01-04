@@ -162,6 +162,15 @@ const Client = extern struct {
         const parent = Client.wrap(c).getParent() orelse return null;
         return &parent.c;
     }
+
+    fn setSize(self: Client, width: u31, height: u31) u32 {
+        const tl = self.toplevel();
+        if (width == tl.current.width and height == tl.current.height) {
+            return 0;
+        }
+        return tl.setSize(width, height);
+    }
+    export fn client_set_size(c: *C.Client, width: u32, height: u32) u32 { return Client.wrap(c).setSize(@intCast(width), @intCast(height)); }
 };
 
 fn client_set_scale(s: *wlroots.Surface, scale: f32) void {

@@ -108,14 +108,7 @@ extern void client_set_fullscreen(Client *c, int fullscreen);
 
 extern void client_set_scale(struct wlr_surface *s, float scale);
 
-static inline uint32_t
-client_set_size(Client *c, uint32_t width, uint32_t height)
-{
-	if ((int32_t)width == c->surface.xdg->toplevel->current.width
-			&& (int32_t)height == c->surface.xdg->toplevel->current.height)
-		return 0;
-	return wlr_xdg_toplevel_set_size(c->surface.xdg->toplevel, (int32_t)width, (int32_t)height);
-}
+extern uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
 
 static inline void
 client_set_tiled(Client *c, uint32_t edges)
