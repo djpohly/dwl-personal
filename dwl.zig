@@ -50,6 +50,7 @@ const Client = extern struct {
         const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
         return xdg.surface;
     }
+    export fn client_surface(c: *C.Client) *wlroots.Surface { return Client.wrap(c).surface(); }
 
     pub fn setBorderColor(self: *Client, color: [4]f32) void {
         for (0..4) |i| {
@@ -57,11 +58,7 @@ const Client = extern struct {
             rect.setColor(&color);
         }
     }
-
-    fn c_client_set_border_color(c: *C.Client, color: *const [4]f32) callconv(.c) void {
-        Client.wrap(c).setBorderColor(color.*);
-    }
-    comptime { @export(&c_client_set_border_color, .{ .name = "client_set_border_color"}); }
+    export fn client_set_border_color(c: *C.Client, color: *const [4]f32) void { Client.wrap(c).setBorderColor(color.*); }
 
     pub fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
@@ -79,6 +76,7 @@ const Client = extern struct {
         if (geom.y + geom.height <= bbox.y)
             geom.y = bbox.y;
     }
+    export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void { Client.wrap(c).applyBounds(bbox.*); }
 };
 
 const KeyboardGroup = extern struct {
@@ -93,15 +91,6 @@ const KeyboardGroup = extern struct {
     key: wl.Listener(*wlroots.Keyboard.event.Key),
     destroy: wl.Listener(*wlroots.InputDevice),
 };
-
-export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void {
-    Client.wrap(c).applyBounds(bbox.*);
-}
-
-export fn client_surface(c: *C.Client) *wlroots.Surface {
-    const client: *Client = @fieldParentPtr("c", c);
-    return client.surface();
-}
 
 export fn chvt(arg: *C.Arg) void {
     session.?.changeVt(arg.ui) catch |err| {
@@ -378,7 +367,7 @@ fn setup() !void {
 }
 
 fn cleanup() void {
-    cleanuplisteners();
+    Listeners.cleanup();
     dpy.destroyClients();
     if (child_proc) |*child| {
         _ = child.kill() catch |err| {
@@ -762,13 +751,15 @@ const Listeners = struct {
     pub export var request_set_sel: wl.Listener(*wlroots.Seat.event.RequestSetSelection) = .init(setsel);
     pub export var request_start_drag: wl.Listener(*wlroots.Seat.event.RequestStartDrag) = .init(requeststartdrag);
     pub export var start_drag: wl.Listener(*wlroots.Drag) = .init(startdrag);
+
+    fn cleanup() void {
+        inline for (@typeInfo(Listeners).@"struct".decls) |decl| {
+            @field(Listeners, decl.name).link.remove();
+        }
+    }
+    export fn cleanuplisteners() void { Listeners.cleanup(); }
 };
 
-export fn cleanuplisteners() void {
-    inline for (@typeInfo(Listeners).@"struct".decls) |decl| {
-        @field(Listeners, decl.name).link.remove();
-    }
-}
 
 fn requeststartdrag(_: *wl.Listener(*wlroots.Seat.event.RequestStartDrag), event: *wlroots.Seat.event.RequestStartDrag) void {
     if (seat.validatePointerGrabSerial(event.origin, event.serial)) {
