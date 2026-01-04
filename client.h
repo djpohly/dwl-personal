@@ -6,12 +6,6 @@
  */
 
 /* Leave these functions first; they're used in the others */
-int
-client_is_x11(Client *c)
-{
-	return 0;
-}
-
 extern struct wlr_surface *client_surface(Client *c);
 
 extern int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl);
