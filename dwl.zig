@@ -97,6 +97,14 @@ const Client = extern struct {
         return self.toplevel().setBounds(width, height);
     }
     export fn client_set_bounds(c: *C.Client, width: i32, height: i32) u32 { return Client.wrap(c).setBounds(@intCast(width), @intCast(height)); }
+
+    fn getAppId(self: *const Client) [:0]const u8 {
+        return std.mem.span(self.getAppIdZ());
+    }
+    fn getAppIdZ(self: *const Client) [*:0]const u8 {
+        return self.toplevel().app_id orelse "broken";
+    }
+    export fn client_get_appid(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getAppIdZ(); }
 };
 
 const KeyboardGroup = extern struct {

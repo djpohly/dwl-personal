@@ -21,11 +21,7 @@ client_activate_surface(struct wlr_surface *s, int activated)
 
 extern uint32_t client_set_bounds(Client *c, int32_t width, int32_t height);
 
-static inline const char *
-client_get_appid(Client *c)
-{
-	return c->surface.xdg->toplevel->app_id ? c->surface.xdg->toplevel->app_id : "broken";
-}
+extern const char *client_get_appid(Client *c);
 
 static inline void
 client_get_clip(Client *c, struct wlr_box *clip)
