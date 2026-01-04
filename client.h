@@ -23,19 +23,7 @@ extern uint32_t client_set_bounds(Client *c, int32_t width, int32_t height);
 
 extern const char *client_get_appid(Client *c);
 
-static inline void
-client_get_clip(Client *c, struct wlr_box *clip)
-{
-	*clip = (struct wlr_box){
-		.x = 0,
-		.y = 0,
-		.width = c->geom.width - c->bw,
-		.height = c->geom.height - c->bw,
-	};
-
-	clip->x = c->surface.xdg->geometry.x;
-	clip->y = c->surface.xdg->geometry.y;
-}
+extern void client_get_clip(Client *c, struct wlr_box *clip);
 
 static inline void
 client_get_geometry(Client *c, struct wlr_box *geom)

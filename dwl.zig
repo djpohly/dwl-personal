@@ -47,8 +47,11 @@ const Client = extern struct {
         return @fieldParentPtr("c", raw);
     }
 
+    fn xdgSurface(self: Client) *wlroots.XdgSurface {
+        return @alignCast(@ptrCast(self.c.surface.xdg.?));
+    }
     pub fn surface(self: Client) *wlroots.Surface {
-        const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
+        const xdg = self.xdgSurface();
         return xdg.surface;
     }
     export fn client_surface(c: *C.Client) *wlroots.Surface { return Client.wrap(c).surface(); }
@@ -105,6 +108,18 @@ const Client = extern struct {
         return self.toplevel().app_id orelse "broken";
     }
     export fn client_get_appid(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getAppIdZ(); }
+
+    fn getClip(self: *const Client) wlroots.Box {
+        const xdg = self.xdgSurface();
+        const bw: c_int = @intCast(self.c.bw);
+        return .{
+            .x = xdg.geometry.x,
+            .y = xdg.geometry.y,
+            .width = self.c.geom.width - bw,
+            .height = self.c.geom.height - bw,
+        };
+    }
+    export fn client_get_clip(c: *C.Client, clip: *wlroots.Box) void { clip.* = Client.wrap(c).getClip(); }
 };
 
 const KeyboardGroup = extern struct {
