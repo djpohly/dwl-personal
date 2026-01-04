@@ -27,14 +27,7 @@ extern void client_get_clip(Client *c, struct wlr_box *clip);
 
 extern void client_get_geometry(Client *c, struct wlr_box *geom);
 
-static inline Client *
-client_get_parent(Client *c)
-{
-	Client *p = NULL;
-	if (c->surface.xdg->toplevel->parent)
-		toplevel_from_wlr_surface(c->surface.xdg->toplevel->parent->base->surface, &p, NULL);
-	return p;
-}
+extern Client *client_get_parent(Client *c);
 
 static inline int
 client_has_children(Client *c)

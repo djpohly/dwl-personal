@@ -153,6 +153,15 @@ const Client = extern struct {
         return self.toplevel().requested.fullscreen;
     }
     export fn client_wants_fullscreen(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).wantsFullscreen()); }
+
+    fn getParent(self: Client) ?*Client {
+        const parent = self.toplevel().parent orelse return null;
+        return toplevel_from_wlr_surface(parent.base.surface).client;
+    }
+    export fn client_get_parent(c: *C.Client) ?*C.Client {
+        const parent = Client.wrap(c).getParent() orelse return null;
+        return &parent.c;
+    }
 };
 
 const KeyboardGroup = extern struct {
