@@ -180,6 +180,17 @@ fn client_set_scale(s: *wlroots.Surface, scale: f32) void {
 fn c_client_set_scale(s: *C.wlr_surface, scale: f32) callconv(.c) void { client_set_scale(@ptrCast(s), scale); }
 comptime { @export(&c_client_set_scale, .{ .name = "client_set_scale" }); }
 
+fn client_activate_surface(s: *wlroots.Surface, activated: bool) void {
+    if (wlroots.XdgSurface.tryFromWlrSurface(s)) |xdg_surface| {
+        if (xdg_surface.role != .toplevel) {
+            return;
+        }
+        _ = xdg_surface.role_data.toplevel.?.setActivated(activated);
+    }
+}
+fn c_client_activate_surface(s: *C.wlr_surface, activated: c_int) callconv(.c) void { client_activate_surface(@ptrCast(s), activated != 0); }
+comptime { @export(&c_client_activate_surface, .{ .name = "client_activate_surface" }); }
+
 const KeyboardGroup = extern struct {
     wlr_group: *wlroots.KeyboardGroup,
 

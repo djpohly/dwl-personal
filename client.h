@@ -11,13 +11,7 @@ extern struct wlr_surface *client_surface(Client *c);
 extern int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSurface **pl);
 
 /* The others */
-static inline void
-client_activate_surface(struct wlr_surface *s, int activated)
-{
-	struct wlr_xdg_toplevel *toplevel;
-	if ((toplevel = wlr_xdg_toplevel_try_from_wlr_surface(s)))
-		wlr_xdg_toplevel_set_activated(toplevel, activated);
-}
+extern void client_activate_surface(struct wlr_surface *s, int activated);
 
 extern uint32_t client_set_bounds(Client *c, int32_t width, int32_t height);
 
