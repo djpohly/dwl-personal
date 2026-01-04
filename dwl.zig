@@ -51,6 +51,18 @@ const Client = extern struct {
         return xdg.surface;
     }
 
+    pub fn setBorderColor(self: *Client, color: [4]f32) void {
+        for (0..4) |i| {
+            const rect: *wlroots.SceneRect = @ptrCast(self.c.border[i]);
+            rect.setColor(&color);
+        }
+    }
+
+    fn c_client_set_border_color(c: *C.Client, color: *const [4]f32) callconv(.c) void {
+        Client.wrap(c).setBorderColor(color.*);
+    }
+    comptime { @export(&c_client_set_border_color, .{ .name = "client_set_border_color"}); }
+
     pub fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
         const min_dim = 1 + 2 * self.c.bw;
@@ -157,7 +169,7 @@ fn setup() !void {
     scene = try .create();
     errdefer scene.tree.node.destroy();
 
-    root_bg = try scene.tree.createSceneRect(0, 0, config.rootcolor);
+    root_bg = try scene.tree.createSceneRect(0, 0, &config.rootcolor);
     errdefer root_bg.node.destroy();
 
     var init_layers: std.ArrayListUnmanaged(*wlroots.SceneTree) = .initBuffer(&layers);
@@ -638,7 +650,7 @@ fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event
             printstatus();
 
             if (c.surface().mapped) {
-                client_set_border_color(&c.c, config.urgentcolor);
+                c.setBorderColor(config.urgentcolor);
             }
         },
         else => return,
@@ -674,14 +686,6 @@ fn exit_child(child: *std.process.Child) void {
 
 fn print_child(comptime fmt: []const u8, args: anytype) !void {
     try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
-}
-
-fn client_set_border_color(c: *C.Client, color: *const [4]f32) void {
-    for (0..4) |i| {
-        comptime assert(@TypeOf(c.border[i]) == [*c]C.wlr_scene_rect); // remove @ptrCast
-        const rect: *wlroots.SceneRect = @ptrCast(c.border[i]);
-        rect.setColor(color);
-    }
 }
 
 var activation: *wlroots.XdgActivationV1 = undefined;

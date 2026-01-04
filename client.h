@@ -160,13 +160,7 @@ client_send_close(Client *c)
 	wlr_xdg_toplevel_send_close(c->surface.xdg->toplevel);
 }
 
-static inline void
-client_set_border_color(Client *c, const float color[static 4])
-{
-	int i;
-	for (i = 0; i < 4; i++)
-		wlr_scene_rect_set_color(c->border[i], color);
-}
+extern void client_set_border_color(Client *c, const float color[4]);
 
 static inline void
 client_set_fullscreen(Client *c, int fullscreen)
