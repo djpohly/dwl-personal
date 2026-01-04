@@ -97,12 +97,6 @@ client_is_stopped(Client *c)
 	return 0;
 }
 
-static inline int
-client_is_unmanaged(Client *c)
-{
-	return 0;
-}
-
 static inline void
 client_notify_enter(struct wlr_surface *s, struct wlr_keyboard *kb)
 {
@@ -147,11 +141,5 @@ client_set_tiled(Client *c, uint32_t edges)
 }
 
 extern void client_set_suspended(Client *c, int suspended);
-
-static inline int
-client_wants_focus(Client *c)
-{
-	return 0;
-}
 
 extern int client_wants_fullscreen(Client *c);

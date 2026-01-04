@@ -460,7 +460,7 @@ buttonpress(struct wl_listener *listener, void *data)
 
 		/* Change focus if the button was _pressed_ over a client */
 		xytonode(cursor->x, cursor->y, NULL, &c, NULL, NULL, NULL);
-		if (c && (!client_is_unmanaged(c) || client_wants_focus(c)))
+		if (c)
 			focusclient(c, 1);
 
 		keyboard = wlr_seat_get_keyboard(seat);
@@ -1110,7 +1110,7 @@ focusclient(Client *c, int lift)
 	}
 
 	/* Put the new client atop the focus stack and select its monitor */
-	if (c && !client_is_unmanaged(c)) {
+	if (c) {
 		wl_list_remove(&c->flink);
 		wl_list_insert(&fstack, &c->flink);
 		selmon = c->mon;
@@ -1132,15 +1132,13 @@ focusclient(Client *c, int lift)
 		 * and focus it after the overlay is closed. */
 		if (old_client_type == LayerShell && wlr_scene_node_coords(
 					&old_l->scene->node, &unused_lx, &unused_ly)
-				&& old_l->layer_surface->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP) {
+				&& old_l->layer_surface->current.layer >= ZWLR_LAYER_SHELL_V1_LAYER_TOP)
 			return;
-		} else if (old_c && old_c == exclusive_focus && client_wants_focus(old_c)) {
-			return;
+
 		/* Don't deactivate old client if the new one wants focus, as this causes issues with winecfg
 		 * and probably other clients */
-		} else if (old_c && !client_is_unmanaged(old_c) && (!c || !client_wants_focus(c))) {
+		if (old_c) {
 			client_set_border_color(old_c, bordercolor);
-
 			client_activate_surface(old, 0);
 		}
 	}
@@ -1378,26 +1376,13 @@ mapnotify(struct wl_listener *listener, void *data)
 	/* Create scene tree for this client and its border */
 	c->scene = client_surface(c)->data = wlr_scene_tree_create(layers[LyrTile]);
 	/* Enabled later by a call to arrange() */
-	wlr_scene_node_set_enabled(&c->scene->node, client_is_unmanaged(c));
+	wlr_scene_node_set_enabled(&c->scene->node, 0);
 	c->scene_surface = c->type == XDGShell
 			? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
 			: wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
 	c->scene->node.data = c->scene_surface->node.data = c;
 
 	client_get_geometry(c, &c->geom);
-
-	/* Handle unmanaged clients first so we can return prior create borders */
-	if (client_is_unmanaged(c)) {
-		/* Unmanaged clients always are floating */
-		wlr_scene_node_reparent(&c->scene->node, layers[LyrFloat]);
-		wlr_scene_node_set_position(&c->scene->node, c->geom.x, c->geom.y);
-		client_set_size(c, c->geom.width, c->geom.height);
-		if (client_wants_focus(c)) {
-			focusclient(c, 1);
-			exclusive_focus = c;
-		}
-		goto unset_fullscreen;
-	}
 
 	for (i = 0; i < 4; i++) {
 		c->border[i] = wlr_scene_rect_create(c->scene, 0, 0,
@@ -1586,7 +1571,7 @@ moveresize(const Arg *arg)
 	if (cursor_mode != CurNormal && cursor_mode != CurPressed)
 		return;
 	xytonode(cursor->x, cursor->y, NULL, &grabc, NULL, NULL, NULL);
-	if (!grabc || client_is_unmanaged(grabc) || grabc->isfullscreen)
+	if (!grabc || grabc->isfullscreen)
 		return;
 
 	/* Float the window and tell motionnotify to grab it */
@@ -1692,7 +1677,7 @@ pointerfocus(Client *c, struct wlr_surface *surface, double sx, double sy,
 	struct timespec now;
 
 	if (surface != seat->pointer_state.focused_surface &&
-			sloppyfocus && time && c && !client_is_unmanaged(c))
+			sloppyfocus && time && c)
 		focusclient(c, 0);
 
 	/* If surface is NULL, clear pointer focus */
@@ -2081,16 +2066,9 @@ unmapnotify(struct wl_listener *listener, void *data)
 		grabc = NULL;
 	}
 
-	if (client_is_unmanaged(c)) {
-		if (c == exclusive_focus) {
-			exclusive_focus = NULL;
-			focusclient(focustop(selmon), 1);
-		}
-	} else {
-		wl_list_remove(&c->link);
-		setmon(c, NULL, 0);
-		wl_list_remove(&c->flink);
-	}
+	wl_list_remove(&c->link);
+	setmon(c, NULL, 0);
+	wl_list_remove(&c->flink);
 
 	wlr_scene_node_destroy(&c->scene->node);
 	printstatus();
