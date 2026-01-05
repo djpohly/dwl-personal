@@ -226,6 +226,16 @@ const Client = extern struct {
     export fn client_is_rendered_on_mon(c: *C.Client, m: *C.Monitor) c_int { return @intFromBool(Client.wrap(c).isRenderedOn(Monitor.wrap(m))); }
 };
 
+fn client_notify_enter(s: *wlroots.Surface, kb: ?*wlroots.Keyboard) void {
+    if (kb) |keyboard| {
+        seat.keyboardNotifyEnter(s, keyboard.keycodes[0..keyboard.num_keycodes], &keyboard.modifiers);
+    } else {
+        seat.keyboardNotifyEnter(s, &.{}, null);
+    }
+}
+fn c_client_notify_enter(s: *C.wlr_surface, kb: ?*C.wlr_keyboard) callconv(.c) void { client_notify_enter(@ptrCast(s), @ptrCast(kb)); }
+comptime { @export(&c_client_notify_enter, .{ .name = "client_notify_enter" }); }
+
 fn client_set_scale(s: *wlroots.Surface, scale: f32) void {
     wlroots.FractionalScaleManagerV1.notifyScale(s, scale);
     s.setPreferredBufferScale(@intFromFloat(@ceil(scale)));

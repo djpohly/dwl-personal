@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <wayland-server-core.h>
+#include <wlr/types/wlr_keyboard.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_scene.h>
 #include <wlr/types/wlr_session_lock_v1.h>
