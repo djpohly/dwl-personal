@@ -224,6 +224,17 @@ const Client = extern struct {
         return false;
     }
     export fn client_is_rendered_on_mon(c: *C.Client, m: *C.Monitor) c_int { return @intFromBool(Client.wrap(c).isRenderedOn(Monitor.wrap(m))); }
+
+    fn setTiled(self: Client, edges: wlroots.Edges) void {
+        const tl = self.toplevel();
+        if (tl.resource.getVersion() < C.XDG_TOPLEVEL_STATE_TILED_RIGHT_SINCE_VERSION) {
+            // Fallback approach
+            _ = tl.setMaximized(edges != wlroots.Edges{});
+            return;
+        }
+        _ = tl.setTiled(edges);
+    }
+    export fn client_set_tiled(c: *C.Client, edges: u32) void { Client.wrap(c).setTiled(@bitCast(edges)); }
 };
 
 fn client_notify_enter(s: *wlroots.Surface, kb: ?*wlroots.Keyboard) void {

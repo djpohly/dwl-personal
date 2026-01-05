@@ -65,16 +65,7 @@ extern void client_set_scale(struct wlr_surface *s, float scale);
 
 extern uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
 
-static inline void
-client_set_tiled(Client *c, uint32_t edges)
-{
-	if (wl_resource_get_version(c->surface.xdg->toplevel->resource)
-			>= XDG_TOPLEVEL_STATE_TILED_RIGHT_SINCE_VERSION) {
-		wlr_xdg_toplevel_set_tiled(c->surface.xdg->toplevel, edges);
-	} else {
-		wlr_xdg_toplevel_set_maximized(c->surface.xdg->toplevel, edges != WLR_EDGE_NONE);
-	}
-}
+extern void client_set_tiled(Client *c, uint32_t edges);
 
 extern void client_set_suspended(Client *c, int suspended);
 
