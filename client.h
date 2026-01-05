@@ -27,34 +27,9 @@ extern int client_has_children(Client *c);
 
 extern const char *client_get_title(Client *c);
 
-static inline int
-client_is_float_type(Client *c)
-{
-	struct wlr_xdg_toplevel *toplevel;
-	struct wlr_xdg_toplevel_state state;
+extern int client_is_float_type(Client *c);
 
-	toplevel = c->surface.xdg->toplevel;
-	state = toplevel->current;
-	return toplevel->parent || (state.min_width != 0 && state.min_height != 0
-		&& (state.min_width == state.max_width
-			|| state.min_height == state.max_height));
-}
-
-static inline int
-client_is_rendered_on_mon(Client *c, Monitor *m)
-{
-	/* This is needed for when you don't want to check formal assignment,
-	 * but rather actual displaying of the pixels.
-	 * Usually VISIBLEON suffices and is also faster. */
-	struct wlr_surface_output *s;
-	int unused_lx, unused_ly;
-	if (!wlr_scene_node_coords(&c->scene->node, &unused_lx, &unused_ly))
-		return 0;
-	wl_list_for_each(s, &client_surface(c)->current_outputs, link)
-		if (s->output == m->wlr_output)
-			return 1;
-	return 0;
-}
+extern int client_is_rendered_on_mon(Client *c, Monitor *m);
 
 static inline int
 client_is_stopped(Client *c)

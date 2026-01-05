@@ -40,6 +40,18 @@ const CursorMode = enum(c_uint) {
     resize,
 };
 
+const Monitor = extern struct {
+    c: C.Monitor,
+
+    pub fn wrap(raw: *C.Monitor) *Monitor {
+        return @fieldParentPtr("c", raw);
+    }
+
+    fn wlrOutput(self: Monitor) *wlroots.Output {
+        return @ptrCast(self.c.wlr_output);
+    }
+};
+
 const Client = extern struct {
     c: C.Client,
 
@@ -179,6 +191,39 @@ const Client = extern struct {
         return head.length() > 1;
     }
     export fn client_has_children(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).hasChildren()); }
+
+    fn isFloatType(self: Client) bool {
+        const tl = self.toplevel();
+        const state = tl.current;
+        return tl.parent != null or (
+            state.min_width != 0 and state.min_height != 0 and 
+            state.min_width == state.max_width and
+            state.min_height == state.max_height);
+    }
+    export fn client_is_float_type(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).isFloatType()); }
+
+    fn isRenderedOn(self: Client, mon: *const Monitor) bool {
+        // This is needed for when you don't want to check formal assignment,
+        // but rather actual displaying of the pixels.  Usually VISIBLEON
+        // suffices and is also faster.
+        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
+        var dummy: c_int = undefined;
+        if (!scene_tree.node.coords(&dummy, &dummy)) {
+            return false;
+        }
+
+        // Check the client's current outputs to see if any is the target
+        const target_output = mon.wlrOutput();
+        var it = self.surface().current_outputs.iterator(.forward);
+        while (it.next()) |s| {
+            if (s.output == target_output) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    export fn client_is_rendered_on_mon(c: *C.Client, m: *C.Monitor) c_int { return @intFromBool(Client.wrap(c).isRenderedOn(Monitor.wrap(m))); }
 };
 
 fn client_set_scale(s: *wlroots.Surface, scale: f32) void {
