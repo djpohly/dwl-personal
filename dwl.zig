@@ -143,7 +143,6 @@ const Client = extern struct {
         c.bounds.height = height;
         return self.toplevel().setBounds(width, height);
     }
-    export fn client_set_bounds(c: *C.Client, width: i32, height: i32) u32 { return Client.wrap(c).setBounds(@intCast(width), @intCast(height)); }
 
     fn getAppId(self: *const Client) [:0]const u8 {
         return std.mem.span(self.getAppIdZ());
@@ -171,7 +170,6 @@ const Client = extern struct {
             .height = self.c.geom.height - bw,
         };
     }
-    export fn client_get_clip(c: *C.Client, clip: *wlroots.Box) void { clip.* = Client.wrap(c).getClip(); }
 
     fn getGeometry(self: Client) wlroots.Box {
         return self.xdgSurface().geometry;
@@ -214,7 +212,6 @@ const Client = extern struct {
         }
         return tl.setSize(width, height);
     }
-    export fn client_set_size(c: *C.Client, width: u32, height: u32) u32 { return Client.wrap(c).setSize(@intCast(width), @intCast(height)); }
 
     fn hasChildren(self: Client) bool {
         const head: *wl.list.Head(wlroots.XdgSurface, .link) = @ptrCast(&self.xdgSurface().link);

@@ -129,7 +129,6 @@ typedef struct {
 } KeyboardGroup;
 
 /* function declarations */
-extern void applybounds(Client *c, struct wlr_box *bbox);
 static void applyrules(Client *c);
 void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
@@ -226,9 +225,7 @@ static void bstackhoriz(Monitor *m);
 static pid_t child_pid = -1;
 static int locked;
 static void *exclusive_focus;
-extern struct wl_display *dpy;
 extern struct wl_event_loop *event_loop;
-extern struct wlr_backend *backend;
 extern struct wlr_scene *scene;
 struct wlr_scene_tree *layers[NUM_LAYERS];
 extern struct wlr_scene_tree *drag_icon;
@@ -236,15 +233,12 @@ extern struct wlr_scene_tree *drag_icon;
 static const int layermap[] = { LyrBg, LyrBottom, LyrTop, LyrOverlay };
 extern struct wlr_renderer *drw;
 extern struct wlr_allocator *alloc;
-extern struct wlr_session *session;
 
 extern struct wl_list clients; /* tiling order */
 extern struct wl_list fstack;  /* focus order */
 extern struct wlr_idle_notifier_v1 *idle_notifier;
 extern struct wlr_idle_inhibit_manager_v1 *idle_inhibit_mgr;
 extern struct wlr_output_manager_v1 *output_mgr;
-extern struct wlr_virtual_keyboard_manager_v1 *virtual_keyboard_mgr;
-extern struct wlr_virtual_pointer_manager_v1 *virtual_pointer_mgr;
 
 extern struct wlr_pointer_constraints_v1 *pointer_constraints;
 extern struct wlr_relative_pointer_manager_v1 *relative_pointer_mgr;
@@ -258,7 +252,6 @@ extern struct wlr_scene_rect *locked_bg;
 extern struct wlr_session_lock_v1 *cur_lock;
 
 extern struct wlr_seat *seat;
-extern KeyboardGroup *kb_group;
 extern unsigned int cursor_mode;
 extern Client *grabc;
 extern int grabcx, grabcy; /* client-relative */
@@ -267,36 +260,6 @@ extern struct wlr_output_layout *output_layout;
 extern struct wlr_box sgeom;
 extern struct wl_list mons;
 extern Monitor *selmon;
-
-/* global event handlers */
-extern struct wl_listener cursor_axis;
-extern struct wl_listener cursor_button;
-extern struct wl_listener cursor_frame;
-extern struct wl_listener cursor_motion;
-extern struct wl_listener cursor_motion_absolute;
-extern struct wl_listener gpu_reset;
-extern struct wl_listener layout_change;
-extern struct wl_listener new_idle_inhibitor;
-extern struct wl_listener new_input_device;
-extern struct wl_listener new_virtual_keyboard;
-extern struct wl_listener new_virtual_pointer;
-extern struct wl_listener new_pointer_constraint;
-extern struct wl_listener new_output;
-extern struct wl_listener new_xdg_toplevel;
-extern struct wl_listener new_xdg_popup;
-extern struct wl_listener new_xdg_decoration;
-extern struct wl_listener new_layer_surface;
-extern struct wl_listener new_session_lock;
-extern struct wl_listener output_mgr_apply;
-extern struct wl_listener output_mgr_test;
-extern struct wl_listener output_power_mgr_set_mode;
-extern struct wl_listener request_activate;
-extern struct wl_listener request_cursor;
-extern struct wl_listener request_set_psel;
-extern struct wl_listener request_set_sel;
-extern struct wl_listener request_set_cursor_shape;
-extern struct wl_listener request_start_drag;
-extern struct wl_listener start_drag;
 
 /* configuration, allows nested code to access above variables */
 #include "config.h"

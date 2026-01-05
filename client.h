@@ -13,11 +13,7 @@ extern int toplevel_from_wlr_surface(struct wlr_surface *s, Client **pc, LayerSu
 /* The others */
 extern void client_activate_surface(struct wlr_surface *s, int activated);
 
-extern uint32_t client_set_bounds(Client *c, int32_t width, int32_t height);
-
 extern const char *client_get_appid(Client *c);
-
-extern void client_get_clip(Client *c, struct wlr_box *clip);
 
 extern void client_get_geometry(Client *c, struct wlr_box *geom);
 
@@ -62,8 +58,6 @@ extern void client_set_border_color(Client *c, const float color[4]);
 extern void client_set_fullscreen(Client *c, int fullscreen);
 
 extern void client_set_scale(struct wlr_surface *s, float scale);
-
-extern uint32_t client_set_size(Client *c, uint32_t width, uint32_t height);
 
 extern void client_set_tiled(Client *c, uint32_t edges);
 
