@@ -972,7 +972,6 @@ const Listeners = struct {
             @field(Listeners, decl.name).link.remove();
         }
     }
-    export fn cleanuplisteners() void { Listeners.cleanup(); }
 };
 
 

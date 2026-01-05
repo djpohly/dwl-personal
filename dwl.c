@@ -139,7 +139,6 @@ void buttonpress(struct wl_listener *listener, void *data);
 extern void chvt(const Arg *arg);
 void checkidleinhibitor(struct wlr_surface *exclude);
 static void cleanupmon(struct wl_listener *listener, void *data);
-void cleanuplisteners(void);
 static void closemon(Monitor *m);
 static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
