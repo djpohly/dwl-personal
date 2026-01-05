@@ -267,6 +267,49 @@ const Client = extern struct {
         _ = tl.setTiled(edges);
     }
     export fn client_set_tiled(c: *C.Client, edges: u32) void { Client.wrap(c).setTiled(@bitCast(edges)); }
+
+    fn resize(self: *Client, geo: wlroots.Box, interactive: bool) void {
+        const mon: *C.Monitor = self.c.mon orelse return;
+        if (!self.surface().mapped) {
+            return;
+        }
+
+        const bbox: wlroots.Box = if (interactive) sgeom else @bitCast(mon.w);
+        _ = self.setBounds(@intCast(geo.width), @intCast(geo.height));
+        self.c.geom = @bitCast(geo);
+        self.applyBounds(bbox);
+
+	// Update scene-graph, including borders
+        const cw: u31 = @intCast(self.c.geom.width);
+        const ch: u31 = @intCast(self.c.geom.height);
+        const bw: u31 = @intCast(self.c.bw);
+
+        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
+        const scene_surface: *wlroots.SceneTree = @ptrCast(self.c.scene_surface);
+        scene_tree.node.setPosition(self.c.geom.x, self.c.geom.y);
+        scene_surface.node.setPosition(bw, bw);
+
+        // Position borders
+        const top: *wlroots.SceneRect = @ptrCast(self.c.border[0]);
+        top.setSize(cw, bw);
+        // Top border stays at (0, 0)
+        const bottom: *wlroots.SceneRect = @ptrCast(self.c.border[1]);
+        bottom.setSize(cw, bw);
+        bottom.node.setPosition(0, ch - bw);
+        const left: *wlroots.SceneRect = @ptrCast(self.c.border[2]);
+        left.setSize(bw, ch - 2 * bw);
+        left.node.setPosition(0, bw);
+        const right: *wlroots.SceneRect = @ptrCast(self.c.border[3]);
+        right.setSize(bw, ch - 2 * bw);
+        right.node.setPosition(cw - bw, bw);
+
+	// this is a no-op if size hasn't changed
+        self.c.resize = self.setSize(cw - 2 * bw, ch - 2 * bw);
+        const clip = self.getClip();
+        scene_surface.node.subsurfaceTreeSetClip(&clip);
+    }
+    fn _resize(c: *C.Client, geo: C.wlr_box, interact: c_int) callconv(.c) void { Client.wrap(c).resize(@bitCast(geo), interact != 0); }
+    comptime { @export(&_resize, .{ .name = "resize" }); }
 };
 
 fn client_notify_enter(s: *wlroots.Surface, kb: ?*wlroots.Keyboard) void {
@@ -928,6 +971,7 @@ export var seat: *wlroots.Seat = undefined;
 export var selmon: ?*C.Monitor = null;
 export var session: ?*wlroots.Session = null;
 var session_lock_mgr: *wlroots.SessionLockManagerV1 = undefined;
+export var sgeom: wlroots.Box = undefined;
 export var virtual_keyboard_mgr: *wlroots.VirtualKeyboardManagerV1 = undefined;
 export var virtual_pointer_mgr: *wlroots.VirtualPointerManagerV1 = undefined;
 var xdg_decoration_mgr: *wlroots.XdgDecorationManagerV1 = undefined;

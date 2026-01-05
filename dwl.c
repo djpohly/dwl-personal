@@ -192,7 +192,7 @@ extern void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
 extern void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
-static void resize(Client *c, struct wlr_box geo, int interact);
+extern void resize(Client *c, struct wlr_box geo, int interact);
 void setcursorshape(struct wl_listener *listener, void *data);
 extern void setfloating(Client *c, int floating);
 static void setfullscreen(Client *c, int fullscreen);
@@ -264,7 +264,7 @@ extern Client *grabc;
 extern int grabcx, grabcy; /* client-relative */
 
 extern struct wlr_output_layout *output_layout;
-static struct wlr_box sgeom;
+extern struct wlr_box sgeom;
 extern struct wl_list mons;
 extern Monitor *selmon;
 
@@ -1770,39 +1770,6 @@ requestmonstate(struct wl_listener *listener, void *data)
 	struct wlr_output_event_request_state *event = data;
 	wlr_output_commit_state(event->output, event->state);
 	updatemons(NULL, NULL);
-}
-
-void
-resize(Client *c, struct wlr_box geo, int interact)
-{
-	struct wlr_box *bbox;
-	struct wlr_box clip;
-
-	if (!c->mon || !client_surface(c)->mapped)
-		return;
-
-	bbox = interact ? &sgeom : &c->mon->w;
-
-	client_set_bounds(c, geo.width, geo.height);
-	c->geom = geo;
-	applybounds(c, bbox);
-
-	/* Update scene-graph, including borders */
-	wlr_scene_node_set_position(&c->scene->node, c->geom.x, c->geom.y);
-	wlr_scene_node_set_position(&c->scene_surface->node, c->bw, c->bw);
-	wlr_scene_rect_set_size(c->border[0], c->geom.width, c->bw);
-	wlr_scene_rect_set_size(c->border[1], c->geom.width, c->bw);
-	wlr_scene_rect_set_size(c->border[2], c->bw, c->geom.height - 2 * c->bw);
-	wlr_scene_rect_set_size(c->border[3], c->bw, c->geom.height - 2 * c->bw);
-	wlr_scene_node_set_position(&c->border[1]->node, 0, c->geom.height - c->bw);
-	wlr_scene_node_set_position(&c->border[2]->node, 0, c->bw);
-	wlr_scene_node_set_position(&c->border[3]->node, c->geom.width - c->bw, c->bw);
-
-	/* this is a no-op if size hasn't changed */
-	c->resize = client_set_size(c, c->geom.width - 2 * c->bw,
-			c->geom.height - 2 * c->bw);
-	client_get_clip(c, &clip);
-	wlr_scene_subsurface_tree_set_clip(&c->scene_surface->node, &clip);
 }
 
 void
