@@ -74,13 +74,39 @@ const Client = extern struct {
         return xdg.role_data.toplevel.?;
     }
 
-    pub fn setBorderColor(self: *Client, color: [4]f32) void {
+    fn setBorderColor(self: *Client, color: [4]f32) void {
         for (0..4) |i| {
             const rect: *wlroots.SceneRect = @ptrCast(self.c.border[i]);
             rect.setColor(&color);
         }
     }
     export fn client_set_border_color(c: *C.Client, color: *const [4]f32) void { Client.wrap(c).setBorderColor(color.*); }
+
+    fn setFloating(self: *Client, floating: bool) void {
+        self.c.isfloating = @intFromBool(floating);
+	// If in floating layout do not change the client's layer
+        const mon: *C.Monitor = self.c.mon orelse return;
+        if (!self.surface().mapped or mon.lt[mon.sellt].*.arrange == null) {
+            return;
+        }
+        const parent = self.getParent();
+        const selfFs = self.c.isfullscreen != 0;
+        const selfFloat = self.c.isfloating != 0;
+        const parentFs = if (parent) |p| p.c.isfullscreen != 0 else false;
+        const layer: Layer =
+            if (selfFs or parentFs)
+                .fs
+            else if (selfFloat)
+                .float
+            else
+                .tile;
+
+        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
+        scene_tree.node.reparent(layers[@intFromEnum(layer)]);
+        arrange(self.c.mon);
+        printstatus();
+    }
+    export fn setfloating(c: *C.Client, floating: c_int) void { Client.wrap(c).setFloating(floating != 0); }
 
     fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
@@ -1166,6 +1192,7 @@ export fn xytonode(
     }
 }
 
+extern fn arrange(m: *C.Monitor) void;
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;

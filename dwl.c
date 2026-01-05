@@ -131,7 +131,7 @@ typedef struct {
 /* function declarations */
 extern void applybounds(Client *c, struct wlr_box *bbox);
 static void applyrules(Client *c);
-static void arrange(Monitor *m);
+void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
 		struct wlr_box *usable_area, int exclusive);
 static void arrangelayers(Monitor *m);
@@ -197,7 +197,7 @@ static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
 void setcursorshape(struct wl_listener *listener, void *data);
-static void setfloating(Client *c, int floating);
+extern void setfloating(Client *c, int floating);
 static void setfullscreen(Client *c, int fullscreen);
 static void setlayout(const Arg *arg);
 static void setmfact(const Arg *arg);
@@ -1842,21 +1842,6 @@ setcursorshape(struct wl_listener *listener, void *data)
 	if (event->seat_client == seat->pointer_state.focused_client)
 		wlr_cursor_set_xcursor(cursor, cursor_mgr,
 				wlr_cursor_shape_v1_name(event->shape));
-}
-
-void
-setfloating(Client *c, int floating)
-{
-	Client *p = client_get_parent(c);
-	c->isfloating = floating;
-	/* If in floating layout do not change the client's layer */
-	if (!c->mon || !client_surface(c)->mapped || !c->mon->lt[c->mon->sellt]->arrange)
-		return;
-	wlr_scene_node_reparent(&c->scene->node, layers[c->isfullscreen ||
-			(p && p->isfullscreen) ? LyrFS
-			: c->isfloating ? LyrFloat : LyrTile]);
-	arrange(c->mon);
-	printstatus();
 }
 
 void
