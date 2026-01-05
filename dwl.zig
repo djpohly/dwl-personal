@@ -66,7 +66,7 @@ const Client = extern struct {
     }
 
     fn xdgSurface(self: Client) *wlroots.XdgSurface {
-        return @alignCast(@ptrCast(self.c.surface.xdg.?));
+        return @alignCast(@ptrCast(self.c.surface));
     }
     pub fn surface(self: Client) *wlroots.Surface {
         const xdg = self.xdgSurface();
@@ -75,7 +75,7 @@ const Client = extern struct {
     export fn client_surface(c: *C.Client) *wlroots.Surface { return Client.wrap(c).surface(); }
 
     fn toplevel(self: Client) *wlroots.XdgToplevel {
-        const xdg: *wlroots.XdgSurface = @alignCast(@ptrCast(self.c.surface.xdg.?));
+        const xdg: *wlroots.XdgSurface = self.xdgSurface();
         assert(xdg.role == .toplevel);
         return xdg.role_data.toplevel.?;
     }

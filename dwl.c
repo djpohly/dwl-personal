@@ -569,7 +569,7 @@ commitnotify(struct wl_listener *listener, void *data)
 {
 	Client *c = wl_container_of(listener, c, commit);
 
-	if (c->surface.xdg->initial_commit) {
+	if (c->surface->initial_commit) {
 		/*
 		 * Get the monitor this client will be rendered on
 		 * Note that if the user set a rule in which the client is placed on
@@ -582,18 +582,18 @@ commitnotify(struct wl_listener *listener, void *data)
 		}
 		setmon(c, NULL, 0); /* Make sure to reapply rules in mapnotify() */
 
-		wlr_xdg_toplevel_set_wm_capabilities(c->surface.xdg->toplevel,
+		wlr_xdg_toplevel_set_wm_capabilities(c->surface->toplevel,
 				WLR_XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
 		if (c->decoration)
 			requestdecorationmode(&c->set_decoration_mode, c->decoration);
-		wlr_xdg_toplevel_set_size(c->surface.xdg->toplevel, 0, 0);
+		wlr_xdg_toplevel_set_size(c->surface->toplevel, 0, 0);
 		return;
 	}
 
 	resize(c, c->geom, (c->isfloating && !c->isfullscreen));
 
 	/* mark a pending resize as completed */
-	if (c->resize && c->resize <= c->surface.xdg->current.configure_serial)
+	if (c->resize && c->resize <= c->surface->current.configure_serial)
 		c->resize = 0;
 }
 
@@ -805,7 +805,7 @@ createnotify(struct wl_listener *listener, void *data)
 
 	/* Allocate a Client for this surface */
 	c = toplevel->base->data = ecalloc(1, sizeof(*c));
-	c->surface.xdg = toplevel->base;
+	c->surface = toplevel->base;
 	c->bw = borderpx;
 
 	LISTEN(&toplevel->base->surface->events.commit, &c->commit, commitnotify);
@@ -1052,7 +1052,7 @@ focusclient(Client *c, int lift)
 
 	if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) == XDGShell) {
 		struct wlr_xdg_popup *popup, *tmp;
-		wl_list_for_each_safe(popup, tmp, &old_c->surface.xdg->popups, link)
+		wl_list_for_each_safe(popup, tmp, &old_c->surface->popups, link)
 			wlr_xdg_popup_destroy(popup);
 	}
 
@@ -1325,7 +1325,7 @@ mapnotify(struct wl_listener *listener, void *data)
 	/* Enabled later by a call to arrange() */
 	wlr_scene_node_set_enabled(&c->scene->node, 0);
 	c->scene_surface = c->type == XDGShell
-			? wlr_scene_xdg_surface_create(c->scene, c->surface.xdg)
+			? wlr_scene_xdg_surface_create(c->scene, c->surface)
 			: wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
 	c->scene->node.data = c->scene_surface->node.data = c;
 
@@ -1378,10 +1378,10 @@ maximizenotify(struct wl_listener *listener, void *data)
 	 * protocol version
 	 * wlr_xdg_surface_schedule_configure() is used to send an empty reply. */
 	Client *c = wl_container_of(listener, c, maximize);
-	if (c->surface.xdg->initialized
-			&& wl_resource_get_version(c->surface.xdg->toplevel->resource)
+	if (c->surface->initialized
+			&& wl_resource_get_version(c->surface->toplevel->resource)
 					< XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION)
-		wlr_xdg_surface_schedule_configure(c->surface.xdg);
+		wlr_xdg_surface_schedule_configure(c->surface);
 }
 
 void

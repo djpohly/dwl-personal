@@ -38,10 +38,7 @@ typedef struct {
 	struct wlr_box geom; /* layout-relative, includes border */
 	struct wlr_box prev; /* layout-relative, includes border */
 	struct wlr_box bounds; /* only width and height are used */
-	union {
-		struct wlr_xdg_surface *xdg;
-		struct wlr_xwayland_surface *xwayland;
-	} surface;
+	struct wlr_xdg_surface *surface;
 	struct wlr_xdg_toplevel_decoration_v1 *decoration;
 	struct wl_listener commit;
 	struct wl_listener map;
