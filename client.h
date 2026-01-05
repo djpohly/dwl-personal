@@ -23,13 +23,7 @@ extern void client_get_geometry(Client *c, struct wlr_box *geom);
 
 extern Client *client_get_parent(Client *c);
 
-static inline int
-client_has_children(Client *c)
-{
-	/* surface.xdg->link is never empty because it always contains at least the
-	 * surface itself. */
-	return wl_list_length(&c->surface.xdg->link) > 1;
-}
+extern int client_has_children(Client *c);
 
 extern const char *client_get_title(Client *c);
 

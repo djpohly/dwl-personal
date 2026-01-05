@@ -171,6 +171,14 @@ const Client = extern struct {
         return tl.setSize(width, height);
     }
     export fn client_set_size(c: *C.Client, width: u32, height: u32) u32 { return Client.wrap(c).setSize(@intCast(width), @intCast(height)); }
+
+    fn hasChildren(self: Client) bool {
+        const head: *wl.list.Head(wlroots.XdgSurface, .link) = @ptrCast(&self.xdgSurface().link);
+	// surface.xdg->link is never empty because it always contains at least the
+	// surface itself.
+        return head.length() > 1;
+    }
+    export fn client_has_children(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).hasChildren()); }
 };
 
 fn client_set_scale(s: *wlroots.Surface, scale: f32) void {
