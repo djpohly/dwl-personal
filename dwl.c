@@ -144,7 +144,6 @@ static void closemon(Monitor *m);
 static void commitlayersurfacenotify(struct wl_listener *listener, void *data);
 static void commitnotify(struct wl_listener *listener, void *data);
 static void commitpopup(struct wl_listener *listener, void *data);
-void createdecoration(struct wl_listener *listener, void *data);
 KeyboardGroup *createkeyboardgroup(void);
 void createlayersurface(struct wl_listener *listener, void *data);
 static void createlocksurface(struct wl_listener *listener, void *data);
@@ -155,7 +154,6 @@ void createpointerconstraint(struct wl_listener *listener, void *data);
 void createpopup(struct wl_listener *listener, void *data);
 static void cursorconstrain(struct wlr_pointer_constraint_v1 *constraint);
 static void cursorwarptohint(void);
-extern void destroydecoration(struct wl_listener *listener, void *data);
 static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
 static void destroylock(SessionLock *lock, int unlocked);
 static void destroylocksurface(struct wl_listener *listener, void *data);
@@ -193,7 +191,7 @@ void printstatus(void);
 static void powermgrsetmode(struct wl_listener *listener, void *data);
 extern void quit(const Arg *arg);
 static void rendermon(struct wl_listener *listener, void *data);
-static void requestdecorationmode(struct wl_listener *listener, void *data);
+extern void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requestmonstate(struct wl_listener *listener, void *data);
 static void resize(Client *c, struct wlr_box geo, int interact);
 void setcursorshape(struct wl_listener *listener, void *data);
@@ -665,19 +663,6 @@ commitpopup(struct wl_listener *listener, void *data)
 	wlr_xdg_popup_unconstrain_from_box(popup, &box);
 	wl_list_remove(&listener->link);
 	free(listener);
-}
-
-void
-createdecoration(struct wl_listener *listener, void *data)
-{
-	struct wlr_xdg_toplevel_decoration_v1 *deco = data;
-	Client *c = deco->toplevel->base->data;
-	c->decoration = deco;
-
-	LISTEN(&deco->events.request_mode, &c->set_decoration_mode, requestdecorationmode);
-	LISTEN(&deco->events.destroy, &c->destroy_decoration, destroydecoration);
-
-	requestdecorationmode(&c->set_decoration_mode, deco);
 }
 
 KeyboardGroup *
@@ -1778,15 +1763,6 @@ skip:
 	clock_gettime(CLOCK_MONOTONIC, &now);
 	wlr_scene_output_send_frame_done(m->scene_output, &now);
 	wlr_output_state_finish(&pending);
-}
-
-void
-requestdecorationmode(struct wl_listener *listener, void *data)
-{
-	Client *c = wl_container_of(listener, c, set_decoration_mode);
-	if (c->surface.xdg->initialized)
-		wlr_xdg_toplevel_decoration_v1_set_mode(c->decoration,
-				WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
 }
 
 void

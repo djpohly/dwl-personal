@@ -47,6 +47,12 @@ const Monitor = extern struct {
         return @fieldParentPtr("c", raw);
     }
 
+    pub fn at(x: f64, y: f64) ?*Monitor {
+        const output = output_layout.outputAt(x, y) orelse return null;
+        return wrap(@alignCast(@ptrCast(output.data)));
+    }
+    export fn xytomon(x: f64, y: f64) ?*C.Monitor { return &(Monitor.at(x, y) orelse return null).c; }
+
     fn wlrOutput(self: Monitor) *wlroots.Output {
         return @ptrCast(self.c.wlr_output);
     }
@@ -766,7 +772,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
 
     // At this point the outputs are initialized, choose initial selmon based on
     // cursor position, and set default cursor image
-    selmon = xytomon(cursor.x, cursor.y);
+    selmon = if (Monitor.at(cursor.x, cursor.y)) |m| &m.c else null;
 
     // TODO hack to get cursor to display in its initial location (100, 100)
     // instead of (0, 0) and then jumping. still may not be fully
@@ -874,10 +880,6 @@ fn destroyidleinhibitor(l: *wl.Listener(*wlroots.Surface), surface: *wlroots.Sur
     l.link.remove();
 }
 
-export fn xytomon(x: f64, y: f64) ?*C.Monitor {
-    return if (output_layout.outputAt(x, y)) |o| @alignCast(@ptrCast(o.data)) else null;
-}
-
 fn exit_child(child: *std.process.Child) void {
     _ = child.kill() catch |err| switch (err) {
         // We can get this if the child was already waited on by waitpid()
@@ -951,7 +953,7 @@ const Listeners = struct {
     pub export var new_session_lock: wl.Listener(*wlroots.SessionLockV1) = .init(_locksession);
     pub export var new_virtual_keyboard: wl.Listener(*wlroots.VirtualKeyboardV1) = .init(virtualkeyboard);
     pub export var new_virtual_pointer: wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPointer) = .init(virtualpointer);
-    pub export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(_createdecoration);
+    pub export var new_xdg_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1) = .init(createdecoration);
     pub export var new_xdg_popup: wl.Listener(*wlroots.XdgPopup) = .init(_createpopup);
     pub export var new_xdg_toplevel: wl.Listener(*wlroots.XdgToplevel) = .init(_createnotify);
     pub export var output_mgr_apply: wl.Listener(*wlroots.OutputConfigurationV1) = .init(_outputmgrapply);
@@ -1096,7 +1098,38 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
     });
 }
 
-export fn destroydecoration(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
+fn createdecoration(_: *wl.Listener(*wlroots.XdgToplevelDecorationV1), deco: *wlroots.XdgToplevelDecorationV1) void {
+    const c: *Client = .wrap(@alignCast(@ptrCast(deco.toplevel.base.data)));
+    c.c.decoration = @ptrCast(deco);
+
+    const mode_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&c.c.set_decoration_mode);
+    mode_listener.setNotify(requestdecorationmode);
+    deco.events.request_mode.add(mode_listener);
+    errdefer mode_listener.link.remove();
+
+    const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&c.c.destroy_decoration);
+    destroy_listener.setNotify(destroydecoration);
+    deco.events.destroy.add(destroy_listener);
+    errdefer destroy_listener.link.remove();
+
+    requestdecorationmode(mode_listener, deco);
+}
+
+fn requestdecorationmode(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
+    const raw: *C.wl_listener = @ptrCast(listener);
+    const c: *Client = .wrap(@fieldParentPtr("set_decoration_mode", raw));
+    if (!c.xdgSurface().initialized) {
+        return;
+    }
+    const deco: *wlroots.XdgToplevelDecorationV1 = @alignCast(@ptrCast(c.c.decoration));
+    _ = deco.setMode(.server_side);
+}
+fn _requestdecorationmode(listener: *C.wl_listener, data: *anyopaque) callconv(.c) void {
+    requestdecorationmode(@ptrCast(listener), @alignCast(@ptrCast(data)));
+}
+comptime { @export(&_requestdecorationmode, .{ .name = "requestdecorationmode" }); }
+
+fn destroydecoration(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
     const raw: *C.wl_listener = @ptrCast(listener);
     const client: *Client = .wrap(@fieldParentPtr("destroy_decoration", raw));
     const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&client.c.destroy_decoration);
@@ -1196,8 +1229,6 @@ extern fn arrange(m: *C.Monitor) void;
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
-extern fn createdecoration(*wl.Listener(*wlroots.XdgToplevelDecorationV1), *wlroots.XdgToplevelDecorationV1) void;
-fn _createdecoration(l: *wl.Listener(*wlroots.XdgToplevelDecorationV1), event: *wlroots.XdgToplevelDecorationV1) void { createdecoration(l, event); }
 extern fn createkeyboardgroup() *KeyboardGroup;
 extern fn createlayersurface(*wl.Listener(*wlroots.LayerSurfaceV1), *wlroots.LayerSurfaceV1) void;
 fn _createlayersurface(l: *wl.Listener(*wlroots.LayerSurfaceV1), event: *wlroots.LayerSurfaceV1) void { createlayersurface(l, event); }
