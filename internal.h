@@ -8,7 +8,10 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xdg-shell-protocol.h>
 
-enum ClientType { XDGShell, LayerShell }; /* client types */
+/* enums */
+enum CursorMode { CurNormal, CurPressed, CurMove, CurResize }; /* cursor */
+enum Layer { LyrBg, LyrBottom, LyrTile, LyrFloat, LyrTop, LyrFs, LyrOverlay, LyrBlock, NUM_LAYERS }; /* scene layers */
+enum ClientType { XdgShell, LayerShell }; /* client types */
 
 typedef union {
 	int i;
@@ -27,7 +30,7 @@ typedef struct {
 typedef struct Monitor Monitor;
 typedef struct {
 	/* Must keep this field first */
-	unsigned int type; /* XDGShell */
+	unsigned int type; /* XdgShell */
 
 	Monitor *mon;
 	struct wlr_scene_tree *scene;
@@ -52,7 +55,7 @@ typedef struct {
 	unsigned int bw;
 	uint32_t tags;
 	int isfloating, isurgent, isfullscreen;
-	uint32_t resize; /* configure serial of a pending resize */
+	uint32_t resize_serial; /* configure serial of a pending resize */
 } Client;
 
 typedef struct {

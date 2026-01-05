@@ -14,6 +14,7 @@ const O = std.os.linux.O;
 const assert = std.debug.assert;
 const config = @import("config.zig");
 const XdgServerDecorationManager = @import("XdgServerDecorationManager.zig");
+const abi = @import("abi.zig");
 
 var environ: std.process.EnvMap = undefined;
 var child_proc: ?std.process.Child = null;
@@ -22,7 +23,9 @@ var child_proc: ?std.process.Child = null;
 // c_allocator is compatible with malloc/free
 const global_alloc = std.heap.c_allocator;
 
-const Layer = enum {
+const Layer = enum(c_uint) {
+    comptime { abi.checkEnum(@This(), C.Layer, C, "Lyr"); }
+
     bg,
     bottom,
     tile,
@@ -34,6 +37,8 @@ const Layer = enum {
 };
 
 const CursorMode = enum(c_uint) {
+    comptime { abi.checkEnum(@This(), C.CursorMode, C, "Cur"); }
+
     normal,
     pressed,
     move,
@@ -41,10 +46,20 @@ const CursorMode = enum(c_uint) {
 };
 
 const Monitor = extern struct {
+    comptime { abi.ensureEquivalentAbiFlat(@This(), C.Monitor); }
+
     c: C.Monitor,
 
     pub fn wrap(raw: *C.Monitor) *Monitor {
         return @fieldParentPtr("c", raw);
+    }
+
+    pub fn unwrap(self: *Monitor) *C.Monitor {
+        return &self.c;
+    }
+
+    pub fn unwrapMaybe(self: ?*Monitor) ?*C.Monitor {
+        return (self orelse return null).unwrap();
     }
 
     pub fn at(x: f64, y: f64) ?*Monitor {
@@ -59,46 +74,85 @@ const Monitor = extern struct {
 };
 
 const Client = extern struct {
-    c: C.Client,
+    comptime { abi.ensureEquivalentAbi(@This(), C.Client); }
+
+    const Type = enum(c_uint) {
+        comptime { abi.checkEnum(@This(), C.ClientType, C, ""); }
+
+        xdg_shell,
+        layer_shell,
+    };
+
+    // Must keep this field first (match ABI for LayerShell)
+    type: Type = .xdg_shell,
+
+    mon: ?*Monitor,
+    scene: *wlroots.SceneTree,
+    // top, bottom, left, right
+    border: [4]*wlroots.SceneRect,
+    scene_surface: *wlroots.SceneTree,
+    link: wl.list.Link,
+    flink: wl.list.Link,
+    // layout-relative, includes border
+    geom: wlroots.Box,
+    // layout-relative, includes border
+    prev: wlroots.Box,
+    // only width and height are used
+    bounds: wlroots.Box,
+    surface: *wlroots.XdgSurface,
+    decoration: ?*wlroots.XdgToplevelDecorationV1,
+    commit: wl.Listener(*wlroots.Surface),
+    map: wl.Listener(void),
+    maximize: wl.Listener(void),
+    unmap: wl.Listener(void),
+    destroy: wl.Listener(void),
+    set_title: wl.Listener(void),
+    fullscreen: wl.Listener(void),
+    set_decoration_mode: wl.Listener(*wlroots.XdgToplevelDecorationV1),
+    destroy_decoration: wl.Listener(*wlroots.XdgToplevelDecorationV1),
+    bw: c_uint,
+    tags: u32,
+    isfloating: c_int,
+    isurgent: c_int,
+    isfullscreen: c_int,
+    resize_serial: u32,
 
     pub fn wrap(raw: *C.Client) *Client {
-        return @fieldParentPtr("c", raw);
+        return @ptrCast(raw);
     }
 
-    fn xdgSurface(self: Client) *wlroots.XdgSurface {
-        return @alignCast(@ptrCast(self.c.surface));
+    pub fn unwrap(self: *Client) *C.Client {
+        return @ptrCast(self);
     }
-    pub fn surface(self: Client) *wlroots.Surface {
-        const xdg = self.xdgSurface();
-        return xdg.surface;
+
+    export fn client_surface(c: *C.Client) *wlroots.Surface {
+        return Client.wrap(c).surface.surface;
     }
-    export fn client_surface(c: *C.Client) *wlroots.Surface { return Client.wrap(c).surface(); }
 
     fn toplevel(self: Client) *wlroots.XdgToplevel {
-        const xdg: *wlroots.XdgSurface = self.xdgSurface();
+        const xdg: *wlroots.XdgSurface = self.surface;
         assert(xdg.role == .toplevel);
         return xdg.role_data.toplevel.?;
     }
 
     fn setBorderColor(self: *Client, color: [4]f32) void {
         for (0..4) |i| {
-            const rect: *wlroots.SceneRect = @ptrCast(self.c.border[i]);
-            rect.setColor(&color);
+            self.border[i].setColor(&color);
         }
     }
     export fn client_set_border_color(c: *C.Client, color: *const [4]f32) void { Client.wrap(c).setBorderColor(color.*); }
 
     fn setFloating(self: *Client, floating: bool) void {
-        self.c.isfloating = @intFromBool(floating);
+        self.isfloating = @intFromBool(floating);
 	// If in floating layout do not change the client's layer
-        const mon: *C.Monitor = self.c.mon orelse return;
-        if (!self.surface().mapped or mon.lt[mon.sellt].*.arrange == null) {
+        const mon: *C.Monitor = (self.mon orelse return).unwrap();
+        if (!self.surface.surface.mapped or mon.lt[mon.sellt].*.arrange == null) {
             return;
         }
         const parent = self.getParent();
-        const selfFs = self.c.isfullscreen != 0;
-        const selfFloat = self.c.isfloating != 0;
-        const parentFs = if (parent) |p| p.c.isfullscreen != 0 else false;
+        const selfFs = self.isfullscreen != 0;
+        const selfFloat = self.isfloating != 0;
+        const parentFs = if (parent) |p| p.isfullscreen != 0 else false;
         const layer: Layer =
             if (selfFs or parentFs)
                 .fs
@@ -107,17 +161,16 @@ const Client = extern struct {
             else
                 .tile;
 
-        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
-        scene_tree.node.reparent(layers[@intFromEnum(layer)]);
-        arrange(self.c.mon);
+        self.scene.node.reparent(layers[@intFromEnum(layer)]);
+        arrange(Monitor.unwrapMaybe(self.mon));
         printstatus();
     }
     export fn setfloating(c: *C.Client, floating: c_int) void { Client.wrap(c).setFloating(floating != 0); }
 
     fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
-        const min_dim = 1 + 2 * self.c.bw;
-        const geom = &self.c.geom;
+        const min_dim = 1 + 2 * self.bw;
+        const geom = &self.geom;
         geom.width = @intCast(@max(min_dim, geom.width));
         geom.height = @intCast(@max(min_dim, geom.height));
 
@@ -133,14 +186,13 @@ const Client = extern struct {
     export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void { Client.wrap(c).applyBounds(bbox.*); }
 
     fn setBounds(self: *Client, width: u31, height: u31) u32 {
-        const c = &self.c;
-        if (self.surface().resource.getVersion() < C.XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION or
-            (c.bounds.width == width and c.bounds.height == height))
+        if (self.surface.surface.resource.getVersion() < C.XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION or
+            (self.bounds.width == width and self.bounds.height == height))
         {
             return 0;
         }
-        c.bounds.width = width;
-        c.bounds.height = height;
+        self.bounds.width = width;
+        self.bounds.height = height;
         return self.toplevel().setBounds(width, height);
     }
 
@@ -161,18 +213,18 @@ const Client = extern struct {
     export fn client_get_title(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getTitleZ(); }
 
     fn getClip(self: *const Client) wlroots.Box {
-        const xdg = self.xdgSurface();
-        const bw: c_int = @intCast(self.c.bw);
+        const xdg = self.surface;
+        const bw: c_int = @intCast(self.bw);
         return .{
             .x = xdg.geometry.x,
             .y = xdg.geometry.y,
-            .width = self.c.geom.width - bw,
-            .height = self.c.geom.height - bw,
+            .width = self.geom.width - bw,
+            .height = self.geom.height - bw,
         };
     }
 
     fn getGeometry(self: Client) wlroots.Box {
-        return self.xdgSurface().geometry;
+        return self.surface.geometry;
     }
     export fn client_get_geometry(c: *C.Client, geom: *wlroots.Box) void { geom.* = Client.wrap(c).getGeometry(); }
 
@@ -202,7 +254,7 @@ const Client = extern struct {
     }
     export fn client_get_parent(c: *C.Client) ?*C.Client {
         const parent = Client.wrap(c).getParent() orelse return null;
-        return &parent.c;
+        return parent.unwrap();
     }
 
     fn setSize(self: Client, width: u31, height: u31) u32 {
@@ -214,7 +266,7 @@ const Client = extern struct {
     }
 
     fn hasChildren(self: Client) bool {
-        const head: *wl.list.Head(wlroots.XdgSurface, .link) = @ptrCast(&self.xdgSurface().link);
+        const head: *wl.list.Head(wlroots.XdgSurface, .link) = @ptrCast(&self.surface.link);
 	// surface.xdg->link is never empty because it always contains at least the
 	// surface itself.
         return head.length() > 1;
@@ -235,15 +287,14 @@ const Client = extern struct {
         // This is needed for when you don't want to check formal assignment,
         // but rather actual displaying of the pixels.  Usually VISIBLEON
         // suffices and is also faster.
-        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
         var dummy: c_int = undefined;
-        if (!scene_tree.node.coords(&dummy, &dummy)) {
+        if (!self.scene.node.coords(&dummy, &dummy)) {
             return false;
         }
 
         // Check the client's current outputs to see if any is the target
         const target_output = mon.wlrOutput();
-        var it = self.surface().current_outputs.iterator(.forward);
+        var it = self.surface.surface.current_outputs.iterator(.forward);
         while (it.next()) |s| {
             if (s.output == target_output) {
                 return true;
@@ -266,44 +317,42 @@ const Client = extern struct {
     export fn client_set_tiled(c: *C.Client, edges: u32) void { Client.wrap(c).setTiled(@bitCast(edges)); }
 
     fn resize(self: *Client, geo: wlroots.Box, interactive: bool) void {
-        const mon: *C.Monitor = self.c.mon orelse return;
-        if (!self.surface().mapped) {
+        const mon: *C.Monitor = Monitor.unwrapMaybe(self.mon) orelse return;
+        if (!self.surface.surface.mapped) {
             return;
         }
 
         const bbox: wlroots.Box = if (interactive) sgeom else @bitCast(mon.w);
         _ = self.setBounds(@intCast(geo.width), @intCast(geo.height));
-        self.c.geom = @bitCast(geo);
+        self.geom = @bitCast(geo);
         self.applyBounds(bbox);
 
 	// Update scene-graph, including borders
-        const cw: u31 = @intCast(self.c.geom.width);
-        const ch: u31 = @intCast(self.c.geom.height);
-        const bw: u31 = @intCast(self.c.bw);
+        const cw: u31 = @intCast(self.geom.width);
+        const ch: u31 = @intCast(self.geom.height);
+        const bw: u31 = @intCast(self.bw);
 
-        const scene_tree: *wlroots.SceneTree = @ptrCast(self.c.scene);
-        const scene_surface: *wlroots.SceneTree = @ptrCast(self.c.scene_surface);
-        scene_tree.node.setPosition(self.c.geom.x, self.c.geom.y);
-        scene_surface.node.setPosition(bw, bw);
+        self.scene.node.setPosition(self.geom.x, self.geom.y);
 
         // Position borders
-        const top: *wlroots.SceneRect = @ptrCast(self.c.border[0]);
+        const top: *wlroots.SceneRect = self.border[0];
         top.setSize(cw, bw);
         // Top border stays at (0, 0)
-        const bottom: *wlroots.SceneRect = @ptrCast(self.c.border[1]);
+        const bottom: *wlroots.SceneRect = self.border[1];
         bottom.setSize(cw, bw);
         bottom.node.setPosition(0, ch - bw);
-        const left: *wlroots.SceneRect = @ptrCast(self.c.border[2]);
+        const left: *wlroots.SceneRect = self.border[2];
         left.setSize(bw, ch - 2 * bw);
         left.node.setPosition(0, bw);
-        const right: *wlroots.SceneRect = @ptrCast(self.c.border[3]);
+        const right: *wlroots.SceneRect = self.border[3];
         right.setSize(bw, ch - 2 * bw);
         right.node.setPosition(cw - bw, bw);
 
 	// this is a no-op if size hasn't changed
-        self.c.resize = self.setSize(cw - 2 * bw, ch - 2 * bw);
+        self.resize_serial = self.setSize(cw - 2 * bw, ch - 2 * bw);
         const clip = self.getClip();
-        scene_surface.node.subsurfaceTreeSetClip(&clip);
+        self.scene_surface.node.setPosition(bw, bw);
+        self.scene_surface.node.subsurfaceTreeSetClip(&clip);
     }
     fn _resize(c: *C.Client, geo: C.wlr_box, interact: c_int) callconv(.c) void { Client.wrap(c).resize(@bitCast(geo), interact != 0); }
     comptime { @export(&_resize, .{ .name = "resize" }); }
@@ -878,10 +927,10 @@ fn toplevel_from_wlr_surface(s: ?*wlroots.Surface) ToplevelResult {
 fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) callconv(.c) c_int {
     const c, const l, const t: c_int = switch (toplevel_from_wlr_surface(s)) {
         .none => .{ null, null, -1 },
-        .client => |c| .{ c, null, @intCast(C.XDGShell) },
+        .client => |c| .{ c, null, @intCast(C.XdgShell) },
         .layer => |l| .{ null, l, @intCast(C.LayerShell) },
     };
-    if (pc) |p| p.* = if (c) |client| &client.c else null;
+    if (pc) |p| p.* = if (c) |client| client.unwrap() else null;
     if (pl) |p| p.* = l;
     return t;
 }
@@ -890,14 +939,14 @@ comptime { @export(&c_toplevel_from_wlr_surface, .{ .name = "toplevel_from_wlr_s
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     switch (toplevel_from_wlr_surface(event.surface)) {
         .client => |c| {
-            if (&c.c == focustop(selmon)) {
+            if (c.unwrap() == focustop(selmon)) {
                 return;
             }
 
-            c.c.isurgent = 1;
+            c.isurgent = 1;
             printstatus();
 
-            if (c.surface().mapped) {
+            if (c.surface.surface.mapped) {
                 c.setBorderColor(config.urgentcolor);
             }
         },
@@ -1139,15 +1188,15 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
 }
 
 fn createdecoration(_: *wl.Listener(*wlroots.XdgToplevelDecorationV1), deco: *wlroots.XdgToplevelDecorationV1) void {
-    const c: *Client = .wrap(@alignCast(@ptrCast(deco.toplevel.base.data)));
-    c.c.decoration = @ptrCast(deco);
+    const c: *Client = @alignCast(@ptrCast(deco.toplevel.base.data));
+    c.decoration = deco;
 
-    const mode_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&c.c.set_decoration_mode);
+    const mode_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = &c.set_decoration_mode;
     mode_listener.setNotify(requestdecorationmode);
     deco.events.request_mode.add(mode_listener);
     errdefer mode_listener.link.remove();
 
-    const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&c.c.destroy_decoration);
+    const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = &c.destroy_decoration;
     destroy_listener.setNotify(destroydecoration);
     deco.events.destroy.add(destroy_listener);
     errdefer destroy_listener.link.remove();
@@ -1156,26 +1205,20 @@ fn createdecoration(_: *wl.Listener(*wlroots.XdgToplevelDecorationV1), deco: *wl
 }
 
 fn requestdecorationmode(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
-    const raw: *C.wl_listener = @ptrCast(listener);
-    const c: *Client = .wrap(@fieldParentPtr("set_decoration_mode", raw));
-    if (!c.xdgSurface().initialized) {
+    const c: *Client = @fieldParentPtr("set_decoration_mode", listener);
+    if (!c.surface.initialized) {
         return;
     }
-    const deco: *wlroots.XdgToplevelDecorationV1 = @alignCast(@ptrCast(c.c.decoration));
+    const deco: *wlroots.XdgToplevelDecorationV1 = c.decoration.?;
     _ = deco.setMode(.server_side);
 }
-fn _requestdecorationmode(listener: *C.wl_listener, data: *anyopaque) callconv(.c) void {
-    requestdecorationmode(@ptrCast(listener), @alignCast(@ptrCast(data)));
-}
+fn _requestdecorationmode(listener: *C.wl_listener, data: *anyopaque) callconv(.c) void { requestdecorationmode(@ptrCast(listener), @alignCast(@ptrCast(data))); }
 comptime { @export(&_requestdecorationmode, .{ .name = "requestdecorationmode" }); }
 
 fn destroydecoration(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _: *wlroots.XdgToplevelDecorationV1) void {
-    const raw: *C.wl_listener = @ptrCast(listener);
-    const client: *Client = .wrap(@fieldParentPtr("destroy_decoration", raw));
-    const destroy_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&client.c.destroy_decoration);
-    destroy_listener.link.remove();
-    const set_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = @ptrCast(&client.c.set_decoration_mode);
-    set_listener.link.remove();
+    const client: *Client = @fieldParentPtr("destroy_decoration", listener);
+    client.destroy_decoration.link.remove();
+    client.set_decoration_mode.link.remove();
 }
 
 
@@ -1212,8 +1255,8 @@ fn _xytonode(
         var pnode: ?*wlroots.SceneNode = node;
         while (pnode) |current| {
             if (current.data) |client| {
-                return switch (@as(*C.Client, @alignCast(@ptrCast(client))).type) {
-                    C.LayerShell => .{ .layer = .{
+                return switch (@as(*Client, @alignCast(@ptrCast(client))).type) {
+                    .layer_shell => .{ .layer = .{
                         .l = @alignCast(@ptrCast(client)),
                         .surface = surface,
                         .nx = nx,
@@ -1265,7 +1308,7 @@ export fn xytonode(
     }
 }
 
-extern fn arrange(m: *C.Monitor) void;
+extern fn arrange(m: ?*C.Monitor) void;
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;

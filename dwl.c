@@ -77,10 +77,6 @@
 #define LISTEN(E, L, H)         wl_signal_add((E), ((L)->notify = (H), (L)))
 #define LISTEN_STATIC(E, H)     do { struct wl_listener *_l = ecalloc(1, sizeof(*_l)); _l->notify = (H); wl_signal_add((E), _l); } while (0)
 
-/* enums */
-enum { CurNormal, CurPressed, CurMove, CurResize }; /* cursor */
-enum { LyrBg, LyrBottom, LyrTile, LyrFloat, LyrTop, LyrFS, LyrOverlay, LyrBlock, NUM_LAYERS }; /* scene layers */
-
 #include "internal.h"
 
 typedef struct {
@@ -321,7 +317,7 @@ arrange(Monitor *m)
 	/* We move all clients (except fullscreen and unmanaged) to LyrTile while
 	 * in floating layout to avoid "real" floating clients be always on top */
 	wl_list_for_each(c, &clients, link) {
-		if (c->mon != m || c->scene->node.parent == layers[LyrFS])
+		if (c->mon != m || c->scene->node.parent == layers[LyrFs])
 			continue;
 
 		wlr_scene_node_reparent(&c->scene->node,
@@ -593,8 +589,8 @@ commitnotify(struct wl_listener *listener, void *data)
 	resize(c, c->geom, (c->isfloating && !c->isfullscreen));
 
 	/* mark a pending resize as completed */
-	if (c->resize && c->resize <= c->surface->current.configure_serial)
-		c->resize = 0;
+	if (c->resize_serial && c->resize_serial <= c->surface->current.configure_serial)
+		c->resize_serial = 0;
 }
 
 void
@@ -780,7 +776,7 @@ createmon(struct wl_listener *listener, void *data)
 	 *
 	 */
 	/* updatemons() will resize and set correct position */
-	m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFS], 0, 0, fullscreen_bg);
+	m->fullscreen_bg = wlr_scene_rect_create(layers[LyrFs], 0, 0, fullscreen_bg);
 	wlr_scene_node_set_enabled(&m->fullscreen_bg->node, 0);
 
 	/* Adds this to the output layout in the order it was configured.
@@ -1050,7 +1046,7 @@ focusclient(Client *c, int lift)
 	if (c && client_surface(c) == old)
 		return;
 
-	if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) == XDGShell) {
+	if ((old_client_type = toplevel_from_wlr_surface(old, &old_c, &old_l)) == XdgShell) {
 		struct wlr_xdg_popup *popup, *tmp;
 		wl_list_for_each_safe(popup, tmp, &old_c->surface->popups, link)
 			wlr_xdg_popup_destroy(popup);
@@ -1324,7 +1320,7 @@ mapnotify(struct wl_listener *listener, void *data)
 	c->scene = client_surface(c)->data = wlr_scene_tree_create(layers[LyrTile]);
 	/* Enabled later by a call to arrange() */
 	wlr_scene_node_set_enabled(&c->scene->node, 0);
-	c->scene_surface = c->type == XDGShell
+	c->scene_surface = c->type == XdgShell
 			? wlr_scene_xdg_surface_create(c->scene, c->surface)
 			: wlr_scene_subsurface_tree_create(c->scene, client_surface(c));
 	c->scene->node.data = c->scene_surface->node.data = c;
@@ -1714,7 +1710,7 @@ rendermon(struct wl_listener *listener, void *data)
 	/* Render if no XDG clients have an outstanding resize and are visible on
 	 * this monitor. */
 	wl_list_for_each(c, &clients, link) {
-		if (c->resize && !c->isfloating && client_is_rendered_on_mon(c, m) && !client_is_stopped(c))
+		if (c->resize_serial && !c->isfloating && client_is_rendered_on_mon(c, m) && !client_is_stopped(c))
 			goto skip;
 	}
 
@@ -1758,7 +1754,7 @@ setfullscreen(Client *c, int fullscreen)
 	c->bw = fullscreen ? 0 : borderpx;
 	client_set_fullscreen(c, fullscreen);
 	wlr_scene_node_reparent(&c->scene->node, layers[c->isfullscreen
-			? LyrFS : c->isfloating ? LyrFloat : LyrTile]);
+			? LyrFs : c->isfloating ? LyrFloat : LyrTile]);
 
 	if (fullscreen) {
 		c->prev = c->geom;
