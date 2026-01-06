@@ -52,17 +52,17 @@ const Monitor = extern struct {
         comptime { abi.ensureEquivalentAbi(@This(), C.Layout); }
 
         symbol: [*:0]const u8,
-        arrange: *const fn (*Monitor) callconv(.c) void,
+        arrange: ?*const fn (*Monitor) callconv(.c) void,
     };
 
     const Rule = extern struct {
         comptime { abi.ensureEquivalentAbi(@This(), C.MonitorRule); }
 
-        name: [*:0]const u8,
+        name: ?[*:0]const u8,
         mfact: f32,
         nmaster: c_int,
         scale: f32,
-        lt: *const Layout,
+        lt: ?*const Layout,
         rr: wl.Output.Transform,
         x: c_int,
         y: c_int,
@@ -94,27 +94,11 @@ const Monitor = extern struct {
     ltsymbol: [16]u8,
     asleep: c_int,
 
-    pub fn wrap(raw: *C.Monitor) *Monitor {
-        return @ptrCast(raw);
-    }
-
-    pub fn unwrap(self: *Monitor) *C.Monitor {
-        return @ptrCast(self);
-    }
-
-    pub fn unwrapMaybe(self: ?*Monitor) ?*C.Monitor {
-        return (self orelse return null).unwrap();
-    }
-
     pub fn at(x: f64, y: f64) ?*Monitor {
         const output = output_layout.outputAt(x, y) orelse return null;
-        return wrap(@alignCast(@ptrCast(output.data)));
+        return @alignCast(@ptrCast(output.data));
     }
-    export fn xytomon(x: f64, y: f64) ?*C.Monitor { return (Monitor.at(x, y) orelse return null).unwrap(); }
-
-    fn wlrOutput(self: Monitor) *wlroots.Output {
-        return @ptrCast(self.wlr_output);
-    }
+    export fn xytomon(x: f64, y: f64) ?*Monitor { return Monitor.at(x, y); }
 };
 
 const Client = extern struct {
@@ -161,16 +145,8 @@ const Client = extern struct {
     isfullscreen: c_int,
     resize_serial: u32,
 
-    pub fn wrap(raw: *C.Client) *Client {
-        return @ptrCast(raw);
-    }
-
-    pub fn unwrap(self: *Client) *C.Client {
-        return @ptrCast(self);
-    }
-
-    export fn client_surface(c: *C.Client) *wlroots.Surface {
-        return Client.wrap(c).surface.surface;
+    export fn client_surface(self: *Client) *wlroots.Surface {
+        return self.surface.surface;
     }
 
     fn toplevel(self: Client) *wlroots.XdgToplevel {
@@ -184,12 +160,12 @@ const Client = extern struct {
             self.border[i].setColor(&color);
         }
     }
-    export fn client_set_border_color(c: *C.Client, color: *const [4]f32) void { Client.wrap(c).setBorderColor(color.*); }
+    export fn client_set_border_color(self: *Client, color: *const [4]f32) void { self.setBorderColor(color.*); }
 
     fn setFloating(self: *Client, floating: bool) void {
         self.isfloating = @intFromBool(floating);
 	// If in floating layout do not change the client's layer
-        const mon: *C.Monitor = (self.mon orelse return).unwrap();
+        const mon: *Monitor = self.mon orelse return;
         if (!self.surface.surface.mapped or mon.lt[mon.sellt].*.arrange == null) {
             return;
         }
@@ -206,10 +182,10 @@ const Client = extern struct {
                 .tile;
 
         self.scene.node.reparent(layers[@intFromEnum(layer)]);
-        arrange(Monitor.unwrapMaybe(self.mon));
+        arrange(self.mon);
         printstatus();
     }
-    export fn setfloating(c: *C.Client, floating: c_int) void { Client.wrap(c).setFloating(floating != 0); }
+    export fn setfloating(self: *Client, floating: c_int) void { self.setFloating(floating != 0); }
 
     fn applyBounds(self: *Client, bbox: wlroots.Box) void {
         // set minimum possible
@@ -227,7 +203,7 @@ const Client = extern struct {
         if (geom.y + geom.height <= bbox.y)
             geom.y = bbox.y;
     }
-    export fn applybounds(c: *C.Client, bbox: *wlroots.Box) void { Client.wrap(c).applyBounds(bbox.*); }
+    export fn applybounds(self: *Client, bbox: *wlroots.Box) void { self.applyBounds(bbox.*); }
 
     fn setBounds(self: *Client, width: u31, height: u31) u32 {
         if (self.surface.surface.resource.getVersion() < C.XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION or
@@ -246,7 +222,7 @@ const Client = extern struct {
     fn getAppIdZ(self: *const Client) [*:0]const u8 {
         return self.toplevel().app_id orelse "broken";
     }
-    export fn client_get_appid(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getAppIdZ(); }
+    export fn client_get_appid(self: *Client) [*:0]const u8 { return self.getAppIdZ(); }
 
     fn getTitle(self: *const Client) [:0]const u8 {
         return std.mem.span(self.getTitleZ());
@@ -254,7 +230,7 @@ const Client = extern struct {
     fn getTitleZ(self: *const Client) [*:0]const u8 {
         return self.toplevel().title orelse "broken";
     }
-    export fn client_get_title(c: *C.Client) [*:0]const u8 { return Client.wrap(c).getTitleZ(); }
+    export fn client_get_title(self: *Client) [*:0]const u8 { return self.getTitleZ(); }
 
     fn getClip(self: *const Client) wlroots.Box {
         const xdg = self.surface;
@@ -270,36 +246,33 @@ const Client = extern struct {
     fn getGeometry(self: Client) wlroots.Box {
         return self.surface.geometry;
     }
-    export fn client_get_geometry(c: *C.Client, geom: *wlroots.Box) void { geom.* = Client.wrap(c).getGeometry(); }
+    export fn client_get_geometry(self: *Client, geom: *wlroots.Box) void { geom.* = self.getGeometry(); }
 
     fn sendClose(self: Client) void {
         self.toplevel().sendClose();
     }
-    export fn client_send_close(c: *C.Client) void { Client.wrap(c).sendClose(); }
+    export fn client_send_close(self: *Client) void { self.sendClose(); }
 
     fn setFullscreen(self: Client, fullscreen: bool) void {
         _ = self.toplevel().setFullscreen(fullscreen);
     }
-    export fn client_set_fullscreen(c: *C.Client, fullscreen: c_int) void { Client.wrap(c).setFullscreen(fullscreen != 0); }
+    export fn client_set_fullscreen(self: *Client, fullscreen: c_int) void { self.setFullscreen(fullscreen != 0); }
 
     fn setSuspended(self: Client, suspended: bool) void {
         _ = self.toplevel().setSuspended(suspended);
     }
-    export fn client_set_suspended(c: *C.Client, suspended: c_int) void { Client.wrap(c).setSuspended(suspended != 0); }
+    export fn client_set_suspended(self: *Client, suspended: c_int) void { self.setSuspended(suspended != 0); }
 
     fn wantsFullscreen(self: Client) bool {
         return self.toplevel().requested.fullscreen;
     }
-    export fn client_wants_fullscreen(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).wantsFullscreen()); }
+    export fn client_wants_fullscreen(self: *Client) c_int { return @intFromBool(self.wantsFullscreen()); }
 
     fn getParent(self: Client) ?*Client {
         const parent = self.toplevel().parent orelse return null;
         return toplevel_from_wlr_surface(parent.base.surface).client;
     }
-    export fn client_get_parent(c: *C.Client) ?*C.Client {
-        const parent = Client.wrap(c).getParent() orelse return null;
-        return parent.unwrap();
-    }
+    export fn client_get_parent(self: *Client) ?*Client { return self.getParent(); }
 
     fn setSize(self: Client, width: u31, height: u31) u32 {
         const tl = self.toplevel();
@@ -315,7 +288,7 @@ const Client = extern struct {
 	// surface itself.
         return head.length() > 1;
     }
-    export fn client_has_children(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).hasChildren()); }
+    export fn client_has_children(self: *Client) c_int { return @intFromBool(self.hasChildren()); }
 
     fn isFloatType(self: Client) bool {
         const tl = self.toplevel();
@@ -325,7 +298,7 @@ const Client = extern struct {
             state.min_width == state.max_width and
             state.min_height == state.max_height);
     }
-    export fn client_is_float_type(c: *C.Client) c_int { return @intFromBool(Client.wrap(c).isFloatType()); }
+    export fn client_is_float_type(self: *Client) c_int { return @intFromBool(self.isFloatType()); }
 
     fn isRenderedOn(self: Client, mon: *const Monitor) bool {
         // This is needed for when you don't want to check formal assignment,
@@ -337,7 +310,7 @@ const Client = extern struct {
         }
 
         // Check the client's current outputs to see if any is the target
-        const target_output = mon.wlrOutput();
+        const target_output = mon.wlr_output;
         var it = self.surface.surface.current_outputs.iterator(.forward);
         while (it.next()) |s| {
             if (s.output == target_output) {
@@ -347,7 +320,7 @@ const Client = extern struct {
 
         return false;
     }
-    export fn client_is_rendered_on_mon(c: *C.Client, m: *C.Monitor) c_int { return @intFromBool(Client.wrap(c).isRenderedOn(Monitor.wrap(m))); }
+    export fn client_is_rendered_on_mon(self: *Client, m: *Monitor) c_int { return @intFromBool(self.isRenderedOn(m)); }
 
     fn setTiled(self: Client, edges: wlroots.Edges) void {
         const tl = self.toplevel();
@@ -358,10 +331,10 @@ const Client = extern struct {
         }
         _ = tl.setTiled(edges);
     }
-    export fn client_set_tiled(c: *C.Client, edges: u32) void { Client.wrap(c).setTiled(@bitCast(edges)); }
+    export fn client_set_tiled(self: *Client, edges: u32) void { self.setTiled(@bitCast(edges)); }
 
     fn resize(self: *Client, geo: wlroots.Box, interactive: bool) void {
-        const mon: *C.Monitor = Monitor.unwrapMaybe(self.mon) orelse return;
+        const mon: *Monitor = self.mon orelse return;
         if (!self.surface.surface.mapped) {
             return;
         }
@@ -398,7 +371,7 @@ const Client = extern struct {
         self.scene_surface.node.setPosition(bw, bw);
         self.scene_surface.node.subsurfaceTreeSetClip(&clip);
     }
-    fn _resize(c: *C.Client, geo: C.wlr_box, interact: c_int) callconv(.c) void { Client.wrap(c).resize(@bitCast(geo), interact != 0); }
+    fn _resize(self: *Client, geo: C.wlr_box, interact: c_int) callconv(.c) void { self.resize(@bitCast(geo), interact != 0); }
     comptime { @export(&_resize, .{ .name = "resize" }); }
 };
 
@@ -784,24 +757,6 @@ fn setcursor(_: *wl.Listener(*wlroots.Seat.event.RequestSetCursor), event: *wlro
     }
 }
 
-const MonsIterator = struct {
-    head: *wl.list.Link,
-    current: *wl.list.Link,
-
-    pub const init: MonsIterator = .{ .head = &mons.link, .current = &mons.link };
-
-    pub fn next(it: *@This()) ?*C.Monitor {
-        it.current = it.current.next.?;
-        if (it.current == it.head) return null;
-        return elemFromLink(it.current);
-    }
-
-    fn elemFromLink(link: *wl.list.Link) *C.Monitor {
-        const cast_link: *C.wl_list = @ptrCast(link);
-        return @fieldParentPtr("link", cast_link);
-    }
-};
-
 fn virtualkeyboard(_: *wl.Listener(*wlroots.VirtualKeyboardV1), kb: *wlroots.VirtualKeyboardV1) void {
     // virtual keyboards shouldn't share keyboard group
     const group = createkeyboardgroup();
@@ -849,11 +804,9 @@ fn gpureset(_: *wl.Listener(void)) void {
 
     compositor.setRenderer(new_drw);
 
-    var it: MonsIterator = .init;
+    var it = mons.iterator(.forward);
     while (it.next()) |m| {
-        comptime assert(@TypeOf(m.wlr_output) == [*c]C.wlr_output); // remove @ptrCast
-        const output: *wlroots.Output = @ptrCast(m.wlr_output);
-        _ = output.initRender(new_alloc, new_drw);
+        _ = m.wlr_output.initRender(new_alloc, new_drw);
     }
 
     const old_drw = drw;
@@ -905,7 +858,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
 
     // At this point the outputs are initialized, choose initial selmon based on
     // cursor position, and set default cursor image
-    selmon = if (Monitor.at(cursor.x, cursor.y)) |m| m.unwrap() else null;
+    selmon = .at(cursor.x, cursor.y);
 
     // TODO hack to get cursor to display in its initial location (100, 100)
     // instead of (0, 0) and then jumping. still may not be fully
@@ -968,13 +921,13 @@ fn toplevel_from_wlr_surface(s: ?*wlroots.Surface) ToplevelResult {
     return .none;
 }
 
-fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*C.Client, pl: ?*?*C.LayerSurface) callconv(.c) c_int {
+fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*Client, pl: ?*?*C.LayerSurface) callconv(.c) c_int {
     const c, const l, const t: c_int = switch (toplevel_from_wlr_surface(s)) {
         .none => .{ null, null, -1 },
         .client => |c| .{ c, null, @intCast(C.XdgShell) },
         .layer => |l| .{ null, l, @intCast(C.LayerShell) },
     };
-    if (pc) |p| p.* = if (c) |client| client.unwrap() else null;
+    if (pc) |p| p.* = c;
     if (pl) |p| p.* = l;
     return t;
 }
@@ -983,7 +936,7 @@ comptime { @export(&c_toplevel_from_wlr_surface, .{ .name = "toplevel_from_wlr_s
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     switch (toplevel_from_wlr_surface(event.surface)) {
         .client => |c| {
-            if (c.unwrap() == focustop(selmon)) {
+            if (c == focustop(selmon)) {
                 return;
             }
 
@@ -1029,7 +982,7 @@ var activation: *wlroots.XdgActivationV1 = undefined;
 export var active_constraint: ?*wlroots.PointerConstraintV1 = null;
 export var alloc: *wlroots.Allocator = undefined;
 export var backend: *wlroots.Backend = undefined;
-export var clients: wl.list.Head(C.Client, .link) = undefined;
+export var clients: wl.list.Head(Client, .link) = undefined;
 var compositor: *wlroots.Compositor = undefined;
 export var cur_lock: ?*wlroots.SessionLockV1 = null;
 export var cursor: *wlroots.Cursor = undefined;
@@ -1040,8 +993,8 @@ export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
 export var drw: *wlroots.Renderer = undefined;
 export var event_loop: *wl.EventLoop = undefined;
-export var fstack: wl.list.Head(C.Client, .flink) = undefined;
-export var grabc: ?*C.Client = null;
+export var fstack: wl.list.Head(Client, .flink) = undefined;
+export var grabc: ?*Client = null;
 export var grabcx: c_int = 0;
 export var grabcy: c_int = 0;
 export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
@@ -1049,7 +1002,7 @@ export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
 export var kb_group: *KeyboardGroup = undefined;
 var layer_shell: *wlroots.LayerShellV1 = undefined;
 export var locked_bg: *wlroots.SceneRect = undefined;
-export var mons: wl.list.Head(C.Monitor, .link) = undefined;
+export var mons: wl.list.Head(Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
 export var output_mgr: *wlroots.OutputManagerV1 = undefined;
 export var pointer_constraints: *wlroots.PointerConstraintsV1 = undefined;
@@ -1058,7 +1011,7 @@ export var relative_pointer_mgr: *wlroots.RelativePointerManagerV1 = undefined;
 export var root_bg: *wlroots.SceneRect = undefined;
 export var scene: *wlroots.Scene = undefined;
 export var seat: *wlroots.Seat = undefined;
-export var selmon: ?*C.Monitor = null;
+export var selmon: ?*Monitor = null;
 export var session: ?*wlroots.Session = null;
 var session_lock_mgr: *wlroots.SessionLockManagerV1 = undefined;
 export var sgeom: wlroots.Box = undefined;
@@ -1269,7 +1222,7 @@ fn destroydecoration(listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1), _
 const XyToNodeResult = union(enum) {
     none: void,
     client: struct {
-        c: *C.Client,
+        c: *Client,
         surface: ?*wlroots.Surface,
         nx: f64,
         ny: f64,
@@ -1324,7 +1277,7 @@ export fn xytonode(
     x: f64,
     y: f64,
     psurface: ?*?*wlroots.Surface,
-    pc: ?*?*C.Client,
+    pc: ?*?*Client,
     pl: ?*?*C.LayerSurface,
     nx: ?*f64,
     ny: ?*f64,
@@ -1352,7 +1305,7 @@ export fn xytonode(
     }
 }
 
-extern fn arrange(m: ?*C.Monitor) void;
+extern fn arrange(m: ?*Monitor) void;
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
 extern fn checkidleinhibitor(exclude: ?*wlroots.Surface) void;
@@ -1369,8 +1322,8 @@ fn _createpointerconstraint(l: *wl.Listener(*wlroots.PointerConstraintV1), event
 extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
-extern fn focusclient(c: ?*C.Client, lift: c_int) void;
-extern fn focustop(mon: ?*C.Monitor) ?*C.Client;
+extern fn focusclient(c: ?*Client, lift: c_int) void;
+extern fn focustop(mon: ?*Monitor) ?*Client;
 extern fn handlesig(signo: c_int) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
 fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }
