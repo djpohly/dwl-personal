@@ -48,14 +48,58 @@ const CursorMode = enum(c_uint) {
 const Monitor = extern struct {
     comptime { abi.ensureEquivalentAbiFlat(@This(), C.Monitor); }
 
-    c: C.Monitor,
+    const Layout = extern struct {
+        comptime { abi.ensureEquivalentAbi(@This(), C.Layout); }
+
+        symbol: [*:0]const u8,
+        arrange: *const fn (*Monitor) callconv(.c) void,
+    };
+
+    const Rule = extern struct {
+        comptime { abi.ensureEquivalentAbi(@This(), C.MonitorRule); }
+
+        name: [*:0]const u8,
+        mfact: f32,
+        nmaster: c_int,
+        scale: f32,
+        lt: *const Layout,
+        rr: wl.Output.Transform,
+        x: c_int,
+        y: c_int,
+    };
+
+    link: wl.list.Link,
+    wlr_output: *wlroots.Output,
+    scene_output: *wlroots.SceneOutput,
+    // See createmon() for info
+    fullscreen_bg: *wlroots.SceneRect,
+    frame: wl.Listener(*wlroots.Output),
+    destroy: wl.Listener(*wlroots.Output),
+    request_state: wl.Listener(*wlroots.Output.event.RequestState),
+    destroy_lock_surface: wl.Listener(void),
+    lock_surface: *wlroots.SessionLockSurfaceV1,
+    // monitor area, layout-relative
+    m: wlroots.Box,
+    // window area, layout-relative
+    w: wlroots.Box,
+    // LayerSurface.link
+    layers: [4]wl.list.Link,
+    lt: [2]*const Layout,
+    seltags: c_uint,
+    sellt: c_uint,
+    tagset: [2]u32,
+    mfact: f32,
+    gamma_lut_changed: c_int,
+    nmaster: c_int,
+    ltsymbol: [16]u8,
+    asleep: c_int,
 
     pub fn wrap(raw: *C.Monitor) *Monitor {
-        return @fieldParentPtr("c", raw);
+        return @ptrCast(raw);
     }
 
     pub fn unwrap(self: *Monitor) *C.Monitor {
-        return &self.c;
+        return @ptrCast(self);
     }
 
     pub fn unwrapMaybe(self: ?*Monitor) ?*C.Monitor {
@@ -66,10 +110,10 @@ const Monitor = extern struct {
         const output = output_layout.outputAt(x, y) orelse return null;
         return wrap(@alignCast(@ptrCast(output.data)));
     }
-    export fn xytomon(x: f64, y: f64) ?*C.Monitor { return &(Monitor.at(x, y) orelse return null).c; }
+    export fn xytomon(x: f64, y: f64) ?*C.Monitor { return (Monitor.at(x, y) orelse return null).unwrap(); }
 
     fn wlrOutput(self: Monitor) *wlroots.Output {
-        return @ptrCast(self.c.wlr_output);
+        return @ptrCast(self.wlr_output);
     }
 };
 
@@ -861,7 +905,7 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
 
     // At this point the outputs are initialized, choose initial selmon based on
     // cursor position, and set default cursor image
-    selmon = if (Monitor.at(cursor.x, cursor.y)) |m| &m.c else null;
+    selmon = if (Monitor.at(cursor.x, cursor.y)) |m| m.unwrap() else null;
 
     // TODO hack to get cursor to display in its initial location (100, 100)
     // instead of (0, 0) and then jumping. still may not be fully

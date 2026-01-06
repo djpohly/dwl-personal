@@ -79,51 +79,6 @@
 
 #include "internal.h"
 
-typedef struct {
-	const char *name;
-	float mfact;
-	int nmaster;
-	float scale;
-	const Layout *lt;
-	enum wl_output_transform rr;
-	int x, y;
-} MonitorRule;
-
-typedef struct {
-	struct wlr_pointer_constraint_v1 *constraint;
-	struct wl_listener destroy;
-} PointerConstraint;
-
-typedef struct {
-	const char *id;
-	const char *title;
-	uint32_t tags;
-	int isfloating;
-	int monitor;
-} Rule;
-
-typedef struct {
-	struct wlr_scene_tree *scene;
-
-	struct wlr_session_lock_v1 *lock;
-	struct wl_listener new_surface;
-	struct wl_listener unlock;
-	struct wl_listener destroy;
-} SessionLock;
-
-typedef struct {
-	struct wlr_keyboard_group *wlr_group;
-
-	int nsyms;
-	const xkb_keysym_t *keysyms; /* invalid if nsyms == 0 */
-	uint32_t mods; /* invalid if nsyms == 0 */
-	struct wl_event_source *key_repeat_source;
-
-	struct wl_listener modifiers;
-	struct wl_listener key;
-	struct wl_listener destroy;
-} KeyboardGroup;
-
 /* function declarations */
 static void applyrules(Client *c);
 void arrange(Monitor *m);
