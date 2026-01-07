@@ -46,7 +46,7 @@ const CursorMode = enum(c_uint) {
 };
 
 const Monitor = extern struct {
-    comptime { abi.ensureEquivalentAbiFlat(@This(), C.Monitor); }
+    comptime { abi.ensureEquivalentAbi(@This(), C.Monitor); }
 
     const Layout = extern struct {
         comptime { abi.ensureEquivalentAbi(@This(), C.Layout); }
@@ -94,11 +94,38 @@ const Monitor = extern struct {
     ltsymbol: [16]u8,
     asleep: c_int,
 
+    fn forOutput(output: *wlroots.Output) ?*Monitor {
+        return @alignCast(@ptrCast(output.data));
+    }
+
     pub fn at(x: f64, y: f64) ?*Monitor {
         const output = output_layout.outputAt(x, y) orelse return null;
         return @alignCast(@ptrCast(output.data));
     }
     export fn xytomon(x: f64, y: f64) ?*Monitor { return Monitor.at(x, y); }
+};
+
+const LayerSurface = extern struct {
+    comptime { abi.ensureEquivalentAbi(@This(), C.LayerSurface); }
+
+    // Must keep this field first (match ABI for Client)
+    type: Client.Type = .layer_shell,
+
+    mon: *Monitor,
+    scene: *wlroots.SceneTree,
+    popups: *wlroots.SceneTree,
+    scene_layer: *wlroots.SceneLayerSurfaceV1,
+    link: wl.list.Link,
+    mapped: c_int,
+    layer_surface: *wlroots.LayerSurfaceV1,
+
+    destroy: wl.Listener(*wlroots.LayerSurfaceV1),
+    unmap: wl.Listener(void),
+    surface_commit: wl.Listener(*wlroots.Surface),
+
+    fn forWlrLayerSurface(layer_surface: *wlroots.LayerSurfaceV1) *LayerSurface {
+        return @alignCast(@ptrCast(layer_surface.data));
+    }
 };
 
 const Client = extern struct {
@@ -144,6 +171,10 @@ const Client = extern struct {
     isurgent: c_int,
     isfullscreen: c_int,
     resize_serial: u32,
+
+    fn forXdgSurface(xdg_surface: *wlroots.XdgSurface) *Client {
+        return @alignCast(@ptrCast(xdg_surface.data));
+    }
 
     export fn client_surface(self: *Client) *wlroots.Surface {
         return self.surface.surface;
@@ -877,9 +908,8 @@ fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
 fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode), event: *wlroots.OutputPowerManagerV1.event.SetMode) void {
     var state: wlroots.Output.State = .init();
 
-    if (@as(?*C.Monitor, @alignCast(@ptrCast(event.output.data)))) |m| {
-        comptime assert(@TypeOf(m.wlr_output) == [*c]C.wlr_output); // remove @ptrCast
-        const output: *wlroots.Output = @ptrCast(m.wlr_output);
+    if (Monitor.forOutput(event.output)) |m| {
+        const output: *wlroots.Output = m.wlr_output;
         m.gamma_lut_changed = 1;
         state.setEnabled(event.mode != .off);
         _ = output.commitState(&state);
@@ -892,21 +922,21 @@ fn powermgrsetmode(_: *wl.Listener(*wlroots.OutputPowerManagerV1.event.SetMode),
 const ToplevelResult = union(enum) {
     none: void,
     client: *Client,
-    layer: *C.LayerSurface,
+    layer: *LayerSurface,
 };
 
 fn toplevel_from_wlr_surface(s: ?*wlroots.Surface) ToplevelResult {
     const surface = s orelse return .none;
     const root_surface = surface.getRootSurface();
     if (wlroots.LayerSurfaceV1.tryFromWlrSurface(root_surface)) |layer_surface| {
-        return .{ .layer = @alignCast(@ptrCast(layer_surface.data)) };
+        return .{ .layer = .forWlrLayerSurface(layer_surface) };
     }
 
     var cur_surface = wlroots.XdgSurface.tryFromWlrSurface(root_surface);
     while (cur_surface) |xdg_surface| {
         switch (xdg_surface.role) {
             .none => return .none,
-            .toplevel => return .{ .client = @alignCast(@ptrCast(xdg_surface.data)) },
+            .toplevel => return .{ .client = .forXdgSurface(xdg_surface) },
             .popup => {
                 const popup = xdg_surface.role_data.popup orelse return .none;
                 const parent = popup.parent orelse return .none;
@@ -921,7 +951,7 @@ fn toplevel_from_wlr_surface(s: ?*wlroots.Surface) ToplevelResult {
     return .none;
 }
 
-fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*Client, pl: ?*?*C.LayerSurface) callconv(.c) c_int {
+fn c_toplevel_from_wlr_surface(s: ?*wlroots.Surface, pc: ?*?*Client, pl: ?*?*LayerSurface) callconv(.c) c_int {
     const c, const l, const t: c_int = switch (toplevel_from_wlr_surface(s)) {
         .none => .{ null, null, -1 },
         .client => |c| .{ c, null, @intCast(C.XdgShell) },
@@ -1185,7 +1215,7 @@ fn inputdevice(_: *wl.Listener(*wlroots.InputDevice), device: *wlroots.InputDevi
 }
 
 fn createdecoration(_: *wl.Listener(*wlroots.XdgToplevelDecorationV1), deco: *wlroots.XdgToplevelDecorationV1) void {
-    const c: *Client = @alignCast(@ptrCast(deco.toplevel.base.data));
+    const c: *Client = .forXdgSurface(deco.toplevel.base);
     c.decoration = deco;
 
     const mode_listener: *wl.Listener(*wlroots.XdgToplevelDecorationV1) = &c.set_decoration_mode;
@@ -1228,7 +1258,7 @@ const XyToNodeResult = union(enum) {
         ny: f64,
     },
     layer: struct {
-        l: *C.LayerSurface,
+        l: *LayerSurface,
         surface: ?*wlroots.Surface,
         nx: f64,
         ny: f64,
@@ -1278,7 +1308,7 @@ export fn xytonode(
     y: f64,
     psurface: ?*?*wlroots.Surface,
     pc: ?*?*Client,
-    pl: ?*?*C.LayerSurface,
+    pl: ?*?*LayerSurface,
     nx: ?*f64,
     ny: ?*f64,
 ) void {
