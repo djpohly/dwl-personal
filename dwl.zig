@@ -982,18 +982,22 @@ fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event
 }
 
 fn createidleinhibitor(_: *wl.Listener(*wlroots.IdleInhibitorV1), idle_inhibitor: *wlroots.IdleInhibitorV1) void {
-    idle_inhibitor.events.destroy.add(&struct {
-        var static_listener: wl.Listener(*wlroots.Surface) = .init(destroyidleinhibitor);
-    }.static_listener);
+    const destroy_listener = global_alloc.create(wl.Listener(*wlroots.Surface)) catch |err| {
+        std.log.err("Error in createidleinhibitor: {t}", .{err});
+        return;
+    };
+    destroy_listener.* = .init(destroyidleinhibitor);
+    idle_inhibitor.events.destroy.add(destroy_listener);
 
     checkidleinhibitor(null);
 }
 
-fn destroyidleinhibitor(l: *wl.Listener(*wlroots.Surface), surface: *wlroots.Surface) void {
+fn destroyidleinhibitor(listener: *wl.Listener(*wlroots.Surface), surface: *wlroots.Surface) void {
     // `surface` is the wlr_surface of the idle inhibitor being destroyed,
     // at this point the idle inhibitor is still in the list of the manager
     checkidleinhibitor(surface.getRootSurface());
-    l.link.remove();
+    listener.link.remove();
+    global_alloc.destroy(listener);
 }
 
 fn exit_child(child: *std.process.Child) void {
