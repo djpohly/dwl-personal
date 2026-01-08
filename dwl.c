@@ -138,11 +138,7 @@ typedef struct {
 #endif
 	unsigned int bw;
 	uint32_t tags;
-	unsigned int
-		isfloating: 1,
-		isurgent: 1,
-		isfullscreen: 1,
-		skipfocus: 1;
+	unsigned int isfloating, isurgent, isfullscreen, skipfocus;
 	uint32_t resize; /* configure serial of a pending resize */
 } Client;
 
