@@ -170,6 +170,7 @@ const Client = extern struct {
     isfloating: c_int,
     isurgent: c_int,
     isfullscreen: c_int,
+    skipfocus: c_int,
     resize_serial: u32,
 
     fn forXdgSurface(xdg_surface: *wlroots.XdgSurface) *Client {

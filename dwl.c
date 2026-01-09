@@ -155,6 +155,7 @@ static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *m);
 static void togglefloating(const Arg *arg);
+static void togglefocusable(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void toggletag(const Arg *arg);
 static void toggleview(const Arg *arg);
@@ -235,9 +236,11 @@ applyrules(Client *c)
 	for (r = rules; r < END(rules); r++) {
 		if ((!r->title || strstr(title, r->title))
 				&& (!r->id || strstr(appid, r->id))) {
-			c->isfloating = r->isfloating;
+			c->isfloating |= r->isfloating;
+			c->skipfocus |= r->skipfocus;
 			newtags |= r->tags;
-			i = 0;
+			// One-based so that 0 can stand for "no rule specified"
+			i = 1;
 			wl_list_for_each(m, &mons, link) {
 				if (r->monitor == i++)
 					mon = m;
@@ -1081,14 +1084,14 @@ focusstack(const Arg *arg)
 		wl_list_for_each(c, &sel->link, link) {
 			if (&c->link == &clients)
 				continue; /* wrap past the sentinel node */
-			if (VISIBLEON(c, selmon))
+			if (!c->skipfocus && VISIBLEON(c, selmon))
 				break; /* found it */
 		}
 	} else {
 		wl_list_for_each_reverse(c, &sel->link, link) {
 			if (&c->link == &clients)
 				continue; /* wrap past the sentinel node */
-			if (VISIBLEON(c, selmon))
+			if (!c->skipfocus && VISIBLEON(c, selmon))
 				break; /* found it */
 		}
 	}
@@ -1837,6 +1840,13 @@ togglefloating(const Arg *arg)
 	/* return if fullscreen */
 	if (sel && !sel->isfullscreen)
 		setfloating(sel, !sel->isfloating);
+}
+
+void
+togglefocusable(const Arg *arg)
+{
+	Client *sel = focustop(selmon);
+	sel->skipfocus = !sel->skipfocus;
 }
 
 void

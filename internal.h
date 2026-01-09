@@ -54,7 +54,7 @@ typedef struct {
 	struct wl_listener destroy_decoration;
 	unsigned int bw;
 	uint32_t tags;
-	int isfloating, isurgent, isfullscreen;
+	unsigned int isfloating, isurgent, isfullscreen, skipfocus;
 	uint32_t resize_serial; /* configure serial of a pending resize */
 } Client;
 
@@ -133,6 +133,7 @@ typedef struct {
 	uint32_t tags;
 	int isfloating;
 	int monitor;
+	int skipfocus;
 } Rule;
 
 typedef struct {
