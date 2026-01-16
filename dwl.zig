@@ -103,6 +103,21 @@ const Monitor = extern struct {
         return @alignCast(@ptrCast(output.data));
     }
     export fn xytomon(x: f64, y: f64) ?*Monitor { return Monitor.at(x, y); }
+
+    pub fn topmost(self: ?*const Monitor) ?*Client {
+        var it = fstack.iterator(.forward);
+        while (it.next()) |c| {
+            if (VISIBLEON(c, self) != 0) {
+                return c;
+            }
+        }
+        return null;
+    }
+    export fn focustop(m: ?*const Monitor) ?*Client { return Monitor.topmost(m); }
+
+    pub fn currentTags(self: Monitor) u32 {
+        return self.tagset[self.seltags];
+    }
 };
 
 const LayerSurface = extern struct {
@@ -177,7 +192,7 @@ const Client = extern struct {
         return @alignCast(@ptrCast(xdg_surface.data));
     }
 
-    export fn client_surface(self: *Client) *wlroots.Surface {
+    export fn client_surface(self: *const Client) *wlroots.Surface {
         return self.surface.surface;
     }
 
@@ -967,7 +982,7 @@ comptime { @export(&c_toplevel_from_wlr_surface, .{ .name = "toplevel_from_wlr_s
 fn urgent(_: *wl.Listener(*wlroots.XdgActivationV1.event.RequestActivate), event: *wlroots.XdgActivationV1.event.RequestActivate) void {
     switch (toplevel_from_wlr_surface(event.surface)) {
         .client => |c| {
-            if (c == focustop(selmon)) {
+            if (c == selmon.?.topmost()) {
                 return;
             }
 
@@ -1127,7 +1142,7 @@ fn allocListen(comptime T: type, signal: *wl.Signal(T), handler: wl.Listener(T).
 
 fn destroydragicon(listener: *wl.Listener(*wlroots.Drag.Icon), _: *wlroots.Drag.Icon) void {
     // Focus enter isn't sent during drag, so refocus the focused node.
-    focusclient(focustop(selmon), 1);
+    focusclient(selmon.?.topmost(), 1);
     motionnotify(0, null, 0, 0, 0, 0);
     listener.link.remove();
     std.heap.c_allocator.destroy(listener);
@@ -1340,6 +1355,10 @@ export fn xytonode(
     }
 }
 
+export fn VISIBLEON(c: *const Client, m: ?*const Monitor) c_int {
+    return @intFromBool(m != null and c.mon == (m) and (c.tags & m.?.currentTags() != 0));
+}
+
 extern fn arrange(m: ?*Monitor) void;
 extern fn buttonpress(*wl.Listener(*wlroots.Pointer.event.Button), *wlroots.Pointer.event.Button) void;
 fn _buttonpress(l: *wl.Listener(*wlroots.Pointer.event.Button), event: *wlroots.Pointer.event.Button) void { buttonpress(l, event); }
@@ -1358,7 +1377,6 @@ extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focusclient(c: ?*Client, lift: c_int) void;
-extern fn focustop(mon: ?*Monitor) ?*Client;
 extern fn handlesig(signo: c_int) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
 fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }

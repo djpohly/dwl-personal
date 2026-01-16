@@ -70,7 +70,6 @@
 #define MAX(A, B)               ((A) > (B) ? (A) : (B))
 #define MIN(A, B)               ((A) < (B) ? (A) : (B))
 #define CLEANMASK(mask)         (mask & ~WLR_MODIFIER_CAPS)
-#define VISIBLEON(C, M)         ((M) && (C)->mon == (M) && ((C)->tags & (M)->tagset[(M)->seltags]))
 #define LENGTH(X)               (sizeof X / sizeof X[0])
 #define END(A)                  ((A) + LENGTH(A))
 #define TAGMASK                 ((1u << TAGCOUNT) - 1)
@@ -114,7 +113,7 @@ static Monitor *dirtomon(enum wlr_direction dir);
 void focusclient(Client *c, int lift);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
-Client *focustop(Monitor *m);
+extern Client *focustop(Monitor *m);
 static void fullscreennotify(struct wl_listener *listener, void *data);
 void handlesig(int signo);
 static void incnmaster(const Arg *arg);
@@ -165,6 +164,7 @@ static void unmapnotify(struct wl_listener *listener, void *data);
 void updatemons(struct wl_listener *listener, void *data);
 static void updatetitle(struct wl_listener *listener, void *data);
 static void view(const Arg *arg);
+extern int VISIBLEON(const Client *c, const Monitor *m);
 static void warpcursor(void);
 extern Monitor *xytomon(double x, double y);
 extern void xytonode(double x, double y, struct wlr_surface **psurface,
@@ -1097,20 +1097,6 @@ focusstack(const Arg *arg)
 	}
 	/* If only one client is visible on selmon, then c == sel */
 	focusclient(c, 1);
-}
-
-/* We probably should change the name of this: it sounds like it
- * will focus the topmost client of this mon, when actually will
- * only return that client */
-Client *
-focustop(Monitor *m)
-{
-	Client *c;
-	wl_list_for_each(c, &fstack, flink) {
-		if (VISIBLEON(c, m))
-			return c;
-	}
-	return NULL;
 }
 
 void
