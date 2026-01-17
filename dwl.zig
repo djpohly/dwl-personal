@@ -209,6 +209,92 @@ const Client = extern struct {
     }
     export fn client_set_border_color(self: *Client, color: *const [4]f32) void { self.setBorderColor(color.*); }
 
+    export fn focusclient(self: ?*Client, raise: c_int) void { Client.focus(self, raise != 0); }
+    fn focus(self: ?*Client, raise: bool) void {
+        const old = seat.keyboard_state.focused_surface;
+
+        if (locked != 0) {
+            return;
+        }
+
+        // Raise client in stacking order if requested
+        if (self) |c| {
+            if (raise) {
+                c.scene.node.raiseToTop();
+            }
+            if (c.client_surface() == old) {
+                return;
+            }
+        }
+
+        const old_toplevel = toplevel_from_wlr_surface(old);
+        switch (old_toplevel) {
+            .client => |c| {
+                var it = c.surface.popups.safeIterator(.forward);
+                while (it.next()) |popup| {
+                    popup.destroy();
+                }
+            },
+            else => {},
+        }
+
+        // Put the new client atop the focus stack and select its monitor
+        if (self) |c| {
+            c.flink.remove();
+            fstack.prepend(c);
+            selmon = c.mon;
+            c.isurgent = @intFromBool(false);
+
+            // Don't change border color if there is an exclusive focus or we are
+            // handling a drag operation
+            if (exclusive_focus == null and seat.drag == null) {
+                c.setBorderColor(config.focuscolor);
+            }
+
+            // Warp cursor to center of client if it is outside
+            warpcursor();
+        }
+
+        // Deactivate old client if focus is changing
+        if (old) |oldclient| {
+            if (self == null or self.?.client_surface() != oldclient) {
+                // If an overlay is focused, don't focus or activate the client,
+                // but only update its position in fstack to render its border with focuscolor
+                // and focus it after the overlay is closed.
+                switch (old_toplevel) {
+                    .layer => |old_l| {
+                        var unused_lx: c_int = undefined;
+                        var unused_ly: c_int = undefined;
+                        if (old_l.scene.node.coords(&unused_lx, &unused_ly) and @intFromEnum(old_l.layer_surface.current.layer) >= @intFromEnum(wayland.client.zwlr.LayerShellV1.Layer.top)) {
+                            return;
+                        }
+                    },
+                    .client => |old_c| {
+                        old_c.setBorderColor(config.bordercolor);
+                        client_activate_surface(oldclient, false);
+                    },
+                    else => {},
+                }
+            }
+        }
+        printstatus();
+
+        if (self == null) {
+            // With no client, all we have left is to clear focus
+            seat.keyboardNotifyClearFocus();
+            return;
+        }
+
+        // Change cursor surface
+        motionnotify(0, null, 0, 0, 0, 0);
+
+        // Have a client, so focus its top-level wlr_surface
+        client_notify_enter(self.?.client_surface(), seat.getKeyboard());
+
+        // Activate the new client
+        client_activate_surface(self.?.client_surface(), true);
+    }
+
     fn setFloating(self: *Client, floating: bool) void {
         self.isfloating = @intFromBool(floating);
 	// If in floating layout do not change the client's layer
@@ -1042,6 +1128,7 @@ var cursor_shape_mgr: *wlroots.CursorShapeManagerV1 = undefined;
 export var dpy: *wl.Server = undefined;
 export var drag_icon: *wlroots.SceneTree = undefined;
 export var drw: *wlroots.Renderer = undefined;
+export var exclusive_focus: ?*anyopaque = null;
 export var event_loop: *wl.EventLoop = undefined;
 export var fstack: wl.list.Head(Client, .flink) = undefined;
 export var grabc: ?*Client = null;
@@ -1051,6 +1138,7 @@ export var idle_inhibit_mgr: *wlroots.IdleInhibitManagerV1 = undefined;
 export var idle_notifier: *wlroots.IdleNotifierV1 = undefined;
 export var kb_group: *KeyboardGroup = undefined;
 var layer_shell: *wlroots.LayerShellV1 = undefined;
+export var locked: c_int = 0;
 export var locked_bg: *wlroots.SceneRect = undefined;
 export var mons: wl.list.Head(Monitor, .link) = undefined;
 export var output_layout: *wlroots.OutputLayout = undefined;
@@ -1389,3 +1477,4 @@ extern fn setcursorshape(*wl.Listener(*wlroots.CursorShapeManagerV1.event.Reques
 fn _setcursorshape(l: *wl.Listener(*wlroots.CursorShapeManagerV1.event.RequestSetShape), event: *wlroots.CursorShapeManagerV1.event.RequestSetShape) void { setcursorshape(l, event); }
 extern fn updatemons(_: ?*wl.Listener(*wlroots.OutputLayout), event: ?*wlroots.OutputLayout) void;
 fn _updatemons(l: *wl.Listener(*wlroots.OutputLayout), event: *wlroots.OutputLayout) void { updatemons(l, event); }
+extern fn warpcursor() void;
