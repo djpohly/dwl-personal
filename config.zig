@@ -16,6 +16,7 @@ pub export const bordercolor = hex_color(0x27323fff);
 pub export const focuscolor = hex_color(0x717a77ff);
 pub export const urgentcolor = hex_color(0x7eb6f6ff);
 
+pub const cursor_size = 24;
 pub const repeatRate = 20;
 pub const repeatDelay = 200;
 

@@ -758,8 +758,8 @@ fn setup() !void {
     // Xcursor themes to source cursor images from and makes sure that cursor
     // images are available at all scale factors on the screen (necessary for
     // HiDPI support). Scaled cursors will be loaded with each output.
-    cursor_mgr = try .create(null, 24);
-    _ = C.setenv("XCURSOR_SIZE", "24", 1);
+    cursor_mgr = try .create(null, config.cursor_size);
+    _ = C.setenv("XCURSOR_SIZE", std.fmt.comptimePrint("{d}", .{config.cursor_size}), 1);
 
     // wlr_cursor *only* displays an image on screen. It does not move around
     // when the pointer moves. However, we can attach input devices to it, and
