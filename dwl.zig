@@ -866,7 +866,7 @@ export fn spawn(arg: *C.Arg) void {
     const argv: [*:null]const ?[*:0]const u8 = @alignCast(@ptrCast(arg.v));
     const argv_slice = std.mem.span(argv);
     var argv_slices: [max_args][]const u8 = undefined;
-    for (argv_slice, &argv_slices) |src, *dst| {
+    for (argv_slice, argv_slices[0..argv_slice.len]) |src, *dst| {
         dst.* = std.mem.span(src).?;
     }
     _spawn(argv_slices[0..argv_slice.len]) catch |err| {
