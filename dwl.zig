@@ -16,12 +16,15 @@ const config = @import("config.zig");
 const XdgServerDecorationManager = @import("XdgServerDecorationManager.zig");
 const abi = @import("abi.zig");
 
-var environ: std.process.EnvMap = undefined;
+var environ: *std.process.Environ.Map = undefined;
 var child_proc: ?std.process.Child = null;
 
 // Allocator to use for allocating objects/listeners
 // c_allocator is compatible with malloc/free
 const global_alloc = std.heap.c_allocator;
+var global_io: std.Io = undefined;
+
+const max_args = 128;
 
 const Layer = enum(c_uint) {
     comptime { abi.checkEnum(@This(), C.Layer, C, "Lyr"); }
@@ -557,6 +560,8 @@ export fn chvt(arg: *C.Arg) void {
 }
 
 pub fn main(init: std.process.Init) !void {
+    global_io = init.io;
+
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
@@ -576,8 +581,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.c.getenv("XDG_RUNTIME_DIR") == null) die("XDG_RUNTIME_DIR must be set");
 
-    environ = try std.process.getEnvMap(gpa.allocator());
-    defer environ.deinit();
+    environ = init.environ_map;
 
     try setup();
     try run(gpa.allocator(), options.@"startup-cmd");
@@ -820,7 +824,7 @@ fn setup() !void {
     // Make sure XWayland clients don't connect to the parent X server,
     // e.g when running in the x11 backend or the wayland backend and the
     // compositor has Xwayland support
-    environ.remove("DISPLAY");
+    _ = environ.swapRemove("DISPLAY");
 }
 
 fn cleanup() void {
@@ -850,18 +854,23 @@ export fn quit(_: ?*C.Arg) void {
     dpy.terminate();
 }
 
-fn _spawn(argv: [*:null]const ?[*:0]const u8) !void {
-    if (try posix.fork() == 0) {
-        try posix.dup2(posix.STDERR_FILENO, posix.STDOUT_FILENO);
-        _ = try posix.setsid();
-        posix.execvpeZ(argv[0].?, argv, std.c.environ) catch {
-            die("dwl: execvp %s failed:", argv[0]);
-        };
-    }
+fn _spawn(argv: []const []const u8) !void {
+    _ = try std.process.spawn(global_io, .{
+        .argv = argv,
+        .expand_arg0 = .expand,
+        .stdout = .{ .file = .stderr() },
+        .pgid = 0,
+    });
 }
 
 export fn spawn(arg: *C.Arg) void {
-    _spawn(@alignCast(@ptrCast(arg.v))) catch |err| {
+    const argv: [*:null]const ?[*:0]const u8 = @alignCast(@ptrCast(arg.v));
+    const argv_slice = std.mem.span(argv);
+    var argv_slices: [max_args][]const u8 = undefined;
+    for (argv_slice, &argv_slices) |src, *dst| {
+        dst.* = std.mem.span(src).?;
+    }
+    _spawn(argv_slices[0..argv_slice.len]) catch |err| {
         std.log.warn("error {t} in spawn", .{err});
     };
 }
@@ -918,14 +927,14 @@ fn virtualpointer(_: *wl.Listener(*wlroots.VirtualPointerManagerV1.event.NewPoin
 fn gpureset(_: *wl.Listener(void)) void {
     const new_drw = wlroots.Renderer.autocreate(backend) catch |err| {
         std.log.err("Error creating Renderer: {s}", .{@errorName(err)});
-        std.debug.dumpCurrentStackTrace(null);
+        std.debug.dumpCurrentStackTrace(.{});
         return;
     };
     errdefer new_drw.destroy();
 
     const new_alloc = wlroots.Allocator.autocreate(backend, drw) catch |err| {
         std.log.err("Error creating Renderer: {s}", .{@errorName(err)});
-        std.debug.dumpCurrentStackTrace(null);
+        std.debug.dumpCurrentStackTrace(.{});
         return;
     };
     errdefer new_alloc.destroy();
@@ -950,29 +959,21 @@ fn gpureset(_: *wl.Listener(void)) void {
     defer old_alloc.destroy();
 }
 
-fn run(gpa: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
+fn run(_: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
     // Add a Unix socket to the Wayland display.
     var sockname_buf: [11]u8 = undefined;
     const sockname = try dpy.addSocketAuto(&sockname_buf);
     try environ.put("WAYLAND_DISPLAY", sockname);
     _ = C.setenv("WAYLAND_DISPLAY", sockname, 1);
 
-    var env_arena = std.heap.ArenaAllocator.init(gpa);
-    defer env_arena.deinit();
-    const env = try std.process.createEnvironFromMap(env_arena.allocator(), &environ, .{});
-    _ = env;
-
     // Now that it has a socket to communicate with, run the startup command
     if (startup_cmd) |cmd| {
-        var child: std.process.Child = .init(&.{ "/bin/sh", "-c", cmd }, gpa);
-        child.env_map = &environ;
-        child.stdin_behavior = .Pipe;
-        child.expand_arg0 = .expand;
-
-        try child.spawn();
-        errdefer exit_child(&child);
-
-        try posix.dup2(child.stdin.?.handle, posix.STDOUT_FILENO);
+        child_proc = try std.process.spawn(global_io, .{
+            .argv = &.{cmd},
+            .expand_arg0 = .expand,
+            .stderr = .{ .file = .stdout() },
+            .pgid = 0,
+        });
     }
     defer if (child_proc) |*child| exit_child(child);
 
@@ -1464,7 +1465,7 @@ extern fn createpopup(*wl.Listener(*wlroots.XdgPopup), *wlroots.XdgPopup) void;
 fn _createpopup(l: *wl.Listener(*wlroots.XdgPopup), event: *wlroots.XdgPopup) void { createpopup(l, event); }
 extern fn die(fmt: [*:0]const u8, ...) noreturn;
 extern fn focusclient(c: ?*Client, lift: c_int) void;
-extern fn handlesig(signo: c_int) void;
+extern fn handlesig(signo: SIG) void;
 extern fn locksession(*wl.Listener(*wlroots.SessionLockV1), *wlroots.SessionLockV1) void;
 fn _locksession(l: *wl.Listener(*wlroots.SessionLockV1), event: *wlroots.SessionLockV1) void { locksession(l, event); }
 extern fn outputmgrapply(*wl.Listener(*wlroots.OutputConfigurationV1), *wlroots.OutputConfigurationV1) void;
