@@ -7,10 +7,11 @@ const wl = wayland.server.wl;
 const flags = @import("flags");
 const C = @import("C");
 const posix = std.posix;
+const linux = std.os.linux;
 const F = posix.F;
 const SIG = posix.SIG;
 const SA = posix.SA;
-const O = std.os.linux.O;
+const O = linux.O;
 const assert = std.debug.assert;
 const config = @import("config.zig");
 const XdgServerDecorationManager = @import("XdgServerDecorationManager.zig");
@@ -831,9 +832,7 @@ fn cleanup() void {
     Listeners.cleanup();
     dpy.destroyClients();
     if (child_proc) |*child| {
-        _ = child.kill() catch |err| {
-            std.log.warn("could not kill child process: {t}", .{err});
-        };
+        child.kill(global_io);
     }
     cursor_mgr.destroy();
 
@@ -975,13 +974,13 @@ fn run(_: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
             .pgid = 0,
         });
     }
-    defer if (child_proc) |*child| exit_child(child);
+    defer if (child_proc) |*child| child.kill(global_io);
 
     // Mark stdout as non-blocking to avoid the startup script
     // causing dwl to freeze when a user neither closes stdin
     // nor consumes standard input in his startup script
     const fd = posix.STDOUT_FILENO;
-    _ = try posix.fcntl(fd, F.SETFL, try posix.fcntl(fd, F.GETFL, 0) | @as(u32, @bitCast(O{.NONBLOCK = true})));
+    _ = linux.fcntl(fd, F.SETFL, linux.fcntl(fd, F.GETFL, 0) | @as(u32, @bitCast(O{.NONBLOCK = true})));
 
     printstatus();
 
@@ -1100,18 +1099,6 @@ fn destroyidleinhibitor(listener: *wl.Listener(*wlroots.Surface), surface: *wlro
     checkidleinhibitor(surface.getRootSurface());
     listener.link.remove();
     global_alloc.destroy(listener);
-}
-
-fn exit_child(child: *std.process.Child) void {
-    _ = child.kill() catch |err| switch (err) {
-        // We can get this if the child was already waited on by waitpid()
-        error.AlreadyTerminated => {},
-        else => std.log.err("failed to shut down child (pid {})", .{ child.id }),
-    };
-}
-
-fn print_child(comptime fmt: []const u8, args: anytype) !void {
-    try if (child_proc) |child| child.stdin.?.writer().print(fmt, args);
 }
 
 var activation: *wlroots.XdgActivationV1 = undefined;
