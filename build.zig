@@ -119,22 +119,29 @@ pub fn build(b: *std.Build) !void {
     }
 
     // Build and install executable
-    const exe = defineExecutableStep(b, exe_mod);
-    b.installArtifact(exe);
-
-    const check_step = b.step("check", "Check for compile errors");
-    const exe_check = defineExecutableStep(b, exe_mod);
-    check_step.dependOn(&exe_check.step);
-}
-
-fn defineExecutableStep(b: *std.Build, root_module: *std.Build.Module) *std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = "dwl",
-        .root_module = root_module,
+        .root_module = exe_mod,
+        .use_llvm = true,
     });
-
-
     b.installArtifact(exe);
 
-    return exe;
+    // Enable ZLS quick-checking
+    const check_step = b.step("check", "Check build quickly, without generating artifacts");
+    const check = b.addExecutable(.{
+        .name = exe.name,
+        .root_module = exe.root_module,
+    });
+    check_step.dependOn(&check.step);
+
+    const run_step = b.step("run", "Run the app");
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_step.dependOn(&run_cmd.step);
+
+    run_cmd.step.dependOn(b.getInstallStep());
+
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
 }
