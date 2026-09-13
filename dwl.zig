@@ -859,6 +859,7 @@ fn _spawn(argv: []const []const u8) !void {
         .expand_arg0 = .expand,
         .stdout = .{ .file = .stderr() },
         .pgid = 0,
+        .environ_map = environ,
     });
 }
 
@@ -972,6 +973,7 @@ fn run(_: std.mem.Allocator, startup_cmd: ?[:0]const u8) !void {
             .expand_arg0 = .expand,
             .stderr = .{ .file = .stdout() },
             .pgid = 0,
+            .environ_map = environ,
         });
     }
     defer if (child_proc) |*child| child.kill(global_io);
