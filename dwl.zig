@@ -562,7 +562,7 @@ pub fn main(init: std.process.Init) !void {
 
     const args = try init.minimal.args.toSlice(init.arena.allocator());
 
-    const options = flags.parseOrExit(args, "dwl", struct {
+    const options = flags.parse(init.io, args, "dwl", struct {
         @"startup-cmd": ?[:0]const u8 = null,
         debug: bool = false,
         version: bool = false,

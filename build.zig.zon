@@ -37,8 +37,8 @@
     // internet connectivity.
     .dependencies = .{
         .flags = .{
-            .url = "git+https://github.com/n0s4/flags#98800a0ea483e59dfc3da07cb3e0043c78a713d1",
-            .hash = "flags-0.10.0-a_9h3k13AAA0GlPTaPPvGFExbauHLoHUN3rvR7F8TaGm",
+            .url = "git+https://github.com/JacobCrabill/zig-flags#577ba631455b8c4564ce3b2ab3348cbbfa184537",
+            .hash = "flags-0.11.0-a_9h3p94AAAzo2-t5MPbIer1HqVRBy1gyf5MbD0GVsjB",
         },
         .wayland = .{
             .url = "git+https://codeberg.org/ifreund/zig-wayland#a8e10e87e5ebb49ce518ac3d2198909c87ee615a",
