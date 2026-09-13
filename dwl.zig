@@ -556,12 +556,11 @@ export fn chvt(arg: *C.Arg) void {
     };
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var gpa: std.heap.DebugAllocator(.{}) = .init;
     defer _ = gpa.deinit();
 
-    const args = try std.process.argsAlloc(gpa.allocator());
-    defer std.process.argsFree(gpa.allocator(), args);
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     const options = flags.parseOrExit(args, "dwl", struct {
         @"startup-cmd": ?[:0]const u8 = null,

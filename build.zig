@@ -2,15 +2,17 @@ const std = @import("std");
 const Scanner = @import("wayland").Scanner;
 
 pub fn build(b: *std.Build) !void {
+    const io = b.graph.io;
+
     // Get standard options
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     // Create config.h if needed
-    const cwd = std.fs.cwd();
-    if (cwd.access("config.h", .{})) {} else |err| switch (err) {
+    const cwd: std.Io.Dir = .cwd();
+    if (cwd.access(io, "config.h", .{})) {} else |err| switch (err) {
         error.FileNotFound => {
-            try cwd.copyFile("config.def.h", cwd, "config.h", .{});
+            try cwd.copyFile("config.def.h", cwd, "config.h", io, .{});
         },
         else => {
             return err;
@@ -79,6 +81,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("dwl.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     exe_mod.addIncludePath(b.path("."));
 
@@ -88,6 +91,11 @@ pub fn build(b: *std.Build) !void {
     exe_mod.addImport("wayland", wayland);
     exe_mod.addImport("xkbcommon", xkbcommon);
     exe_mod.addImport("C", c.createModule());
+
+    exe_mod.linkSystemLibrary("wayland-server", .{});
+    exe_mod.linkSystemLibrary("xkbcommon", .{});
+    exe_mod.linkSystemLibrary("libinput", .{});
+    exe_mod.linkSystemLibrary("wlroots-0.19", .{});
 
     // C sources
     exe_mod.addCSourceFiles(.{ .files = &.{
@@ -125,11 +133,6 @@ fn defineExecutableStep(b: *std.Build, root_module: *std.Build.Module) *std.Buil
         .root_module = root_module,
     });
 
-    exe.linkSystemLibrary("wayland-server");
-    exe.linkSystemLibrary("xkbcommon");
-    exe.linkSystemLibrary("libinput");
-    exe.linkSystemLibrary("wlroots-0.19");
-    exe.linkLibC();
 
     b.installArtifact(exe);
 
